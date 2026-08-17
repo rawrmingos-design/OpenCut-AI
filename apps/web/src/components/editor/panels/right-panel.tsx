@@ -26,11 +26,13 @@ export function RightPanel({ className }: { className?: string }) {
 	// Show tabs only when both transcript and timeline content exist
 	const showTabs = hasTranscript;
 
-	// If no transcript, always show properties
+	// If no transcript yet, show the transcript panel so the user can start
+	// transcription (or show properties if an element is selected and there
+	// is nothing to transcribe — no media on the timeline).
 	if (!hasTranscript) {
 		return (
 			<div className={cn("panel bg-background h-full rounded-sm border overflow-hidden", className)}>
-				<PropertiesPanel />
+				{hasSelection ? <PropertiesPanel /> : <TextEditingPanel className="size-full" />}
 			</div>
 		);
 	}
