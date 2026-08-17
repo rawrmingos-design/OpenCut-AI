@@ -76,8 +76,8 @@ services:
       - OPENCUTAI_CORS_ORIGINS=["http://localhost:3000","http://localhost:3100","http://localhost:5173","http://localhost:3200","http://127.0.0.1:3200"]
       # LLM model for Ollama. Kimi K2 options:
       #   kimi-k2:latest (Q3, ~1.4GB), kimi-k2:q4_K_M (Q4, ~3GB), kimi-k2:q5_K_M (Q5, ~7GB)
-      - OPENCUTAI_OLLAMA_DEFAULT_MODEL=${OLLAMA_DEFAULT_MODEL:-llama3.2:1b}
-      - OPENCUTAI_OLLAMA_TIMEOUT=300
+      - OPENCUTAI_OLLAMA_DEFAULT_MODEL=${OLLAMA_DEFAULT_MODEL:-qwen2.5:0.5b}
+      - OPENCUTAI_OLLAMA_TIMEOUT=${OLLAMA_TIMEOUT:-900}
       - OPENCUTAI_WHISPER_MODEL_SIZE=${WHISPER_MODEL_SIZE:-base}
       - OPENCUTAI_WHISPER_DEVICE=cpu
       - OPENCUTAI_WHISPER_SERVICE_URL=http://whisper-service:8421
