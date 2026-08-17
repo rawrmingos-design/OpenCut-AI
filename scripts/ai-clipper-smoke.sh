@@ -2,7 +2,7 @@
 set -euo pipefail
 
 BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-FIXTURE="${1:-/home/fahmi/smoke-fixture.mp4}"
+FIXTURE="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fixtures/smoke-speech-video.mp4}"
 BACKEND="${BACKEND_URL:-http://127.0.0.1:8420}"
 
 [[ -f "$FIXTURE" ]] || { echo "fixture not found: $FIXTURE" >&2; exit 2; }
