@@ -6,6 +6,60 @@ import { Input, ALL_FORMATS, BlobSource, VideoSampleSink } from "mediabunny";
 
 export interface ProcessedMediaAsset extends Omit<MediaAsset, "id"> {}
 
+/** Max file size (bytes) we send to the backend probe endpoint. */
+const PROBE_MAX_BYTES = 500 * 1024 * 1024; // 500 MB
+
+interface BackendProbeResult {
+	duration?: number | null;
+	bit_rate?: number | null;
+	video?: {
+		codec?: string | null;
+		width?: number | null;
+		height?: number | null;
+		fps?: number | null;
+		bit_rate?: number | null;
+	} | null;
+	audio?: {
+		codec?: string | null;
+		sample_rate?: number | null;
+		channels?: number | null;
+		bit_rate?: number | null;
+	} | null;
+}
+
+/**
+ * Ask the AI backend to probe the media file via ffprobe.
+ * Returns null when the backend is unreachable or probing fails
+ * (the client-side browser metadata is always the fallback).
+ */
+async function probeMediaWithBackend(
+	file: File,
+): Promise<BackendProbeResult | null> {
+	const baseUrl = process.env.NEXT_PUBLIC_AI_BACKEND_URL;
+	if (!baseUrl) return null;
+	if (file.size > PROBE_MAX_BYTES) return null;
+
+	try {
+		const formData = new FormData();
+		formData.append("file", file);
+		const controller = new AbortController();
+		const timeoutId = setTimeout(() => controller.abort(), 30_000);
+
+		const response = await fetch(`${baseUrl}/api/media/probe`, {
+			method: "POST",
+			body: formData,
+			signal: controller.signal,
+		});
+		clearTimeout(timeoutId);
+
+		if (!response.ok) return null;
+		return (await response.json()) as BackendProbeResult;
+	} catch (error) {
+		console.warn("Backend media probe unavailable, using browser metadata", error);
+		return null;
+	}
+}
+
 const THUMBNAIL_MAX_WIDTH = 1280;
 const THUMBNAIL_MAX_HEIGHT = 720;
 
@@ -172,6 +226,16 @@ export async function processMediaAssets({
 		let width: number | undefined;
 		let height: number | undefined;
 		let fps: number | undefined;
+		let bitrate: number | undefined;
+		let channels: number | undefined;
+		let sampleRate: number | undefined;
+
+		// Best-effort backend probe (ffprobe) for full metadata.
+		// Browser metadata below always remains the fallback.
+		const backendProbe =
+			fileType === "video" || fileType === "audio"
+				? await probeMediaWithBackend(file)
+				: null;
 
 		try {
 			if (fileType === "image") {
@@ -201,6 +265,32 @@ export async function processMediaAssets({
 				duration = await getMediaDuration({ file });
 			}
 
+			// Merge backend probe data (only fills what browser metadata missed).
+			if (backendProbe) {
+				if (!duration && backendProbe.duration) {
+					duration = backendProbe.duration;
+				}
+				if (!width && backendProbe.video?.width) {
+					width = backendProbe.video.width;
+				}
+				if (!height && backendProbe.video?.height) {
+					height = backendProbe.video.height;
+				}
+				if (!fps && backendProbe.video?.fps) {
+					fps = Math.round(backendProbe.video.fps);
+				}
+				if (!bitrate) {
+					bitrate =
+						backendProbe.video?.bit_rate ?? backendProbe.bit_rate ?? undefined;
+				}
+				if (!channels && backendProbe.audio?.channels) {
+					channels = backendProbe.audio.channels;
+				}
+				if (!sampleRate && backendProbe.audio?.sample_rate) {
+					sampleRate = backendProbe.audio.sample_rate;
+				}
+			}
+
 			processedAssets.push({
 				name: file.name,
 				type: fileType,
@@ -211,6 +301,9 @@ export async function processMediaAssets({
 				width,
 				height,
 				fps,
+				bitrate,
+				channels,
+				sampleRate,
 			});
 
 			await new Promise((resolve) => setTimeout(resolve, 0));
