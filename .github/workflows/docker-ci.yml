@@ -1,0 +1,84 @@
+name: Docker Compose CI
+
+concurrency:
+  group: docker-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: [main, "feature/*"]
+  pull_request:
+    branches: [main, "feature/*"]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup environment files
+        run: |
+          touch .env.local
+          echo "DATABASE_URL=postgresql://opencut:opencut@db:5432/opencut" >> .env.local
+          echo 'BETTER_AUTH_SECRET="supersecret"' >> .env.local
+          echo "NEXT_PUBLIC_AI_BACKEND_URL=http://localhost:8420" >> .env.local
+          echo "CLOUDFLARE_ACCOUNT_ID=placeholder" >> .env.local
+          echo "R2_ACCESS_KEY_ID=placeholder" >> .env.local
+          echo 'R2_SECRET_ACCESS_KEY="supersecret"' >> .env.local
+          echo "R2_BUCKET_NAME=placeholder" >> .env.local
+
+      - name: Build and Start Docker Compose Stack
+        run: |
+          # We start core services for smoke tests (web, ai-backend, db)
+          docker compose up -d --build web ai-backend db
+
+      - name: Wait for services to be healthy
+        run: |
+          echo "Waiting for services..."
+          # Wait up to 60 seconds
+          for i in {1..12}; do
+            if curl -s http://localhost:8420/health | grep -q "ok"; then
+              echo "AI backend is up!"
+              BACKEND_UP=1
+              break
+            fi
+            sleep 5
+          done
+
+          if [ -z "$BACKEND_UP" ]; then
+            echo "AI backend failed to start or timeout."
+            docker compose logs ai-backend
+            exit 1
+          fi
+
+          for i in {1..12}; do
+            if curl -s http://localhost:3200/api/health | grep -q "OK"; then
+              echo "Web is up!"
+              WEB_UP=1
+              break
+            fi
+            sleep 5
+          done
+          
+          if [ -z "$WEB_UP" ]; then
+            echo "Web failed to start or timeout."
+            docker compose logs web
+            exit 1
+          fi
+
+      - name: Smoke test API endpoint
+        run: |
+          # Test backend API
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8420/health)
+          if [ "$STATUS" != "200" ]; then
+            echo "AI Backend returned HTTP $STATUS"
+            exit 1
+          fi
+          
+          echo "Smoke tests passed!"
+
+      - name: Cleanup
+        if: always()
+        run: docker compose down -v
