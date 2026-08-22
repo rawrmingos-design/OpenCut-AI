@@ -53,6 +53,11 @@ const nextConfig: NextConfig = {
 			},
 		],
 	},
+	env: {
+		// Inlined into the client bundle at build/runtime so the browser can
+		// authenticate against the AI backend (X-API-Key on /api/media/probe).
+		NEXT_PUBLIC_AI_API_KEY: process.env.NEXT_PUBLIC_AI_API_KEY,
+	},
 };
 
 export default withContentCollections(withBotId(nextConfig));

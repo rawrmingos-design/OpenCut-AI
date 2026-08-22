@@ -21,13 +21,15 @@ jobs:
       - name: Setup environment files
         run: |
           touch .env.local
-          echo "DATABASE_URL=postgresql://opencut:opencut@db:5432/opencut" >> .env.local
+          echo "DATABASE_URL=postgresql://opencut:***@db:5432/opencut" >> .env.local
           echo 'BETTER_AUTH_SECRET="supersecret"' >> .env.local
           echo "NEXT_PUBLIC_AI_BACKEND_URL=http://localhost:8420" >> .env.local
           echo "CLOUDFLARE_ACCOUNT_ID=placeholder" >> .env.local
           echo "R2_ACCESS_KEY_ID=placeholder" >> .env.local
           echo 'R2_SECRET_ACCESS_KEY="supersecret"' >> .env.local
           echo "R2_BUCKET_NAME=placeholder" >> .env.local
+          # AI backend auth (dev mode — no key = open)
+          echo "OPENCUTAI_API_KEY=" >> .env.local
 
       - name: Build and Start Docker Compose Stack
         run: |

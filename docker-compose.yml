@@ -93,6 +93,7 @@ services:
       - OPENCUTAI_KV_CACHE_BITS=${KV_CACHE_BITS:-4}
       - OPENCUTAI_AI_LLM_BACKEND=${AI_LLM_BACKEND:-auto}
       - OPENCUTAI_SARVAM_API_KEY=${SARVAM_API_KEY:-}
+      - OPENCUTAI_API_KEY=${OPENCUTAI_API_KEY:-}
     volumes:
       - ai_models:/app/models
       - ai_generated:/app/generated
@@ -291,6 +292,7 @@ services:
         - NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL:-http://localhost:3100}
         - NEXT_PUBLIC_MARBLE_API_URL=${NEXT_PUBLIC_MARBLE_API_URL:-https://api.marblecms.com}
         - NEXT_PUBLIC_AI_BACKEND_URL=${NEXT_PUBLIC_AI_BACKEND_URL:-http://localhost:8420}
+        - NEXT_PUBLIC_AI_API_KEY=${OPENCUTAI_API_KEY:-}
         - NEXT_PUBLIC_OLLAMA_URL=${NEXT_PUBLIC_OLLAMA_URL:-http://localhost:11434}
         - NEXT_PUBLIC_WHISPER_SERVICE_URL=${NEXT_PUBLIC_WHISPER_SERVICE_URL:-http://localhost:8421}
         - NEXT_PUBLIC_TTS_SERVICE_URL=${NEXT_PUBLIC_TTS_SERVICE_URL:-http://localhost:8422}
@@ -307,6 +309,7 @@ services:
       - NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL:-http://localhost:3100}
       - NEXT_PUBLIC_MARBLE_API_URL=${NEXT_PUBLIC_MARBLE_API_URL:-https://api.marblecms.com}
       - NEXT_PUBLIC_AI_BACKEND_URL=${NEXT_PUBLIC_AI_BACKEND_URL:-http://localhost:8420}
+      - NEXT_PUBLIC_AI_API_KEY=${OPENCUTAI_API_KEY:-}
       - NEXT_PUBLIC_OLLAMA_URL=${NEXT_PUBLIC_OLLAMA_URL:-http://localhost:11434}
       - MARBLE_WORKSPACE_KEY=${MARBLE_WORKSPACE_KEY:-placeholder}
       - FREESOUND_CLIENT_ID=${FREESOUND_CLIENT_ID}

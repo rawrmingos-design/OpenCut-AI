@@ -3,16 +3,17 @@ from __future__ import annotations
 
 import json
 import logging
+from app.auth import get_api_key
 import subprocess
 import tempfile
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/media", tags=["media"])
+router = APIRouter(prefix="/api/media", tags=["media"], dependencies=[Depends(get_api_key)])
 
 _PROBE_ARGS = [
     "-v", "error",
