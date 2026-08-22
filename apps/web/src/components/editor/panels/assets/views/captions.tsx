@@ -37,6 +37,7 @@ import type { TimelineElement } from "@/types/timeline";
 import { useBackgroundTasksStore } from "@/stores/background-tasks-store";
 import { downloadBlob } from "@/utils/browser";
 import { NLLB_LANGUAGES } from "@/lib/nllb-languages";
+import { SubtitleStyleControls } from "./subtitle-style";
 
 interface SubtitleTrackInfo {
 	trackId: string;
@@ -920,30 +921,26 @@ export function Captions() {
 										</span>
 									</div>
 									<div className="flex items-center gap-1">
-										{track.language !== "original" && (
-											<>
-												<Button
-													variant="ghost"
-													size="sm"
-													className="h-6 px-2 text-[10px] text-muted-foreground hover:text-foreground"
-													onClick={() =>
-														handleExportSubtitles(track, "srt")
-													}
-												>
-													SRT
-												</Button>
-												<Button
-													variant="ghost"
-													size="sm"
-													className="h-6 px-2 text-[10px] text-muted-foreground hover:text-foreground"
-													onClick={() =>
-														handleExportSubtitles(track, "vtt")
-													}
-												>
-													VTT
-												</Button>
-											</>
-										)}
+										<Button
+											variant="ghost"
+											size="sm"
+											className="h-6 px-2 text-[10px] text-muted-foreground hover:text-foreground"
+											onClick={() =>
+												handleExportSubtitles(track, "srt")
+											}
+										>
+											SRT
+										</Button>
+										<Button
+											variant="ghost"
+											size="sm"
+											className="h-6 px-2 text-[10px] text-muted-foreground hover:text-foreground"
+											onClick={() =>
+												handleExportSubtitles(track, "vtt")
+											}
+										>
+											VTT
+										</Button>
 										<Button
 											variant="ghost"
 											size="sm"
@@ -976,7 +973,13 @@ export function Captions() {
 									Add subtitles
 								</Button>
 							)}
-						</div>
+
+							<SubtitleStyleControls
+								subtitleTrackIds={activeSubtitleTracks.map(
+									(t) => t.trackId,
+								)}
+							/>
+							</div>
 
 						{/* ── Add Language ── */}
 						<div className="border-t pt-4 flex flex-col gap-3">

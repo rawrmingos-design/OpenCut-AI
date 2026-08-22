@@ -49,6 +49,9 @@ async function probeMediaWithBackend(
 			method: "POST",
 			body: formData,
 			signal: controller.signal,
+			headers: process.env.NEXT_PUBLIC_AI_API_KEY
+				? { "X-API-Key": process.env.NEXT_PUBLIC_AI_API_KEY }
+				: {},
 		});
 		clearTimeout(timeoutId);
 

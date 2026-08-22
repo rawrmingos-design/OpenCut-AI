@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     PORT: int = 8420
     DEBUG: bool = False
+    API_KEY: str | None = None
 
     # CORS
     CORS_ORIGINS: list[str] = [

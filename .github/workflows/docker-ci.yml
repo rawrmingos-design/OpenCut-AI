@@ -39,8 +39,8 @@ jobs:
       - name: Wait for services to be healthy
         run: |
           echo "Waiting for services..."
-          # Wait up to 60 seconds
-          for i in {1..12}; do
+          # Wait up to 180 seconds (Ollama + backend take time to start in GH Actions)
+          for i in {1..36}; do
             if curl -s http://localhost:8420/health | grep -q "ok"; then
               echo "AI backend is up!"
               BACKEND_UP=1
