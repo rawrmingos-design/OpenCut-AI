@@ -31,6 +31,7 @@ import { aiClient } from "@/lib/ai-client";
 import type { TurboQuantStatus } from "@/types/ai";
 import { toast } from "sonner";
 import { FactCheckView } from "./factcheck";
+import { AIModulesSection } from "./ai-modules";
 import {
 	PROXY_THRESHOLD_WIDTH,
 	PROXY_THRESHOLD_HEIGHT,
@@ -82,6 +83,14 @@ export function SettingsView() {
 					</SectionHeader>
 					<SectionContent>
 						<AIOptimizationSection />
+					</SectionContent>
+				</Section>
+				<Section>
+					<SectionHeader>
+						<SectionTitle>AI Modules</SectionTitle>
+					</SectionHeader>
+					<SectionContent>
+						<AIModulesSection />
 					</SectionContent>
 				</Section>
 				<Section>
