@@ -120,6 +120,55 @@ const renderToThumbnailDataUrl = ({
 	return canvas.toDataURL("image/jpeg", 0.8);
 };
 
+export async function generateFilmstrip({
+	videoFile,
+	duration,
+	frameCount = 10,
+}: {
+	videoFile: File;
+	duration: number;
+	frameCount?: number;
+}): Promise<string[]> {
+	const input = new Input({
+		source: new BlobSource(videoFile),
+		formats: ALL_FORMATS,
+	});
+
+	const videoTrack = await input.getPrimaryVideoTrack();
+	if (!videoTrack) throw new Error("No video track found");
+	
+	const canDecode = await videoTrack.canDecode();
+	if (!canDecode) throw new Error("Video codec not supported");
+
+	const sink = new VideoSampleSink(videoTrack);
+	const urls: string[] = [];
+	
+	// Avoid sampling exactly at 0 or max duration to prevent seeking errors
+	const safeDuration = Math.max(0.1, duration - 0.1);
+	const step = safeDuration / Math.max(1, frameCount - 1);
+	
+	for (let i = 0; i < frameCount; i++) {
+		const time = Math.min(i * step, safeDuration);
+		const frame = await sink.getSample(time);
+		if (!frame) continue;
+
+		try {
+			const url = renderToThumbnailDataUrl({
+				width: videoTrack.displayWidth,
+				height: videoTrack.displayHeight,
+				draw: ({ context, width, height }) => {
+					frame.draw(context, 0, 0, width, height);
+				},
+			});
+			urls.push(url);
+		} finally {
+			frame.close();
+		}
+	}
+	
+	return urls;
+}
+
 export async function generateThumbnail({
 	videoFile,
 	timeInSeconds,
@@ -225,6 +274,7 @@ export async function processMediaAssets({
 
 		const url = URL.createObjectURL(file);
 		let thumbnailUrl: string | undefined;
+		let filmstripUrls: string[] | undefined;
 		let duration: number | undefined;
 		let width: number | undefined;
 		let height: number | undefined;
@@ -260,6 +310,18 @@ export async function processMediaAssets({
 						videoFile: file,
 						timeInSeconds: 1,
 					});
+					// Sample a few extra frames for the timeline filmstrip (best effort).
+					if (duration && Number.isFinite(duration)) {
+						try {
+							filmstripUrls = await generateFilmstrip({
+								videoFile: file,
+								duration,
+								frameCount: 10,
+							});
+						} catch (error) {
+							console.warn("Filmstrip generation failed", error);
+						}
+					}
 				} catch (error) {
 					console.warn("Video processing failed", error);
 				}
@@ -300,6 +362,7 @@ export async function processMediaAssets({
 				file,
 				url,
 				thumbnailUrl,
+				filmstripUrls,
 				duration,
 				width,
 				height,

@@ -594,14 +594,14 @@ type ElementContentRenderer = (props: ElementContentRendererProps) => ReactNode;
 
 export function renderTiledMedia({
 	element,
-	imageUrl,
+	imageUrls,
 	track,
 }: {
 	element: VisualElement;
-	imageUrl: string | undefined;
+	imageUrls: string[];
 	track: ElementContentProps["track"];
 }): ReactNode {
-	if (!imageUrl) {
+	if (!imageUrls || imageUrls.length === 0) {
 		return (
 			<span className="text-foreground/80 truncate text-xs">
 				{element.name}
@@ -609,20 +609,43 @@ export function renderTiledMedia({
 		);
 	}
 
-	const trackHeight = getTrackHeight({ type: track.type });
-	const tileWidth = trackHeight * (16 / 9);
+	// Use just the first image if there's only one (repeat it to act as tiled).
+	if (imageUrls.length === 1) {
+		const trackHeight = getTrackHeight({ type: track.type });
+		const tileWidth = trackHeight * (16 / 9);
+		return (
+			<div
+				className="absolute inset-0"
+				style={{
+					backgroundImage: `url(${imageUrls[0]})`,
+					backgroundRepeat: "repeat-x",
+					backgroundSize: `${tileWidth}px ${trackHeight}px`,
+					backgroundPosition: "left center",
+					pointerEvents: "none",
+				}}
+			/>
+		);
+	}
 
+	// Actual filmstrip logic
 	return (
 		<div
-			className="absolute inset-0"
-			style={{
-				backgroundImage: `url(${imageUrl})`,
-				backgroundRepeat: "repeat-x",
-				backgroundSize: `${tileWidth}px ${trackHeight}px`,
-				backgroundPosition: "left center",
-				pointerEvents: "none",
-			}}
-		/>
+			className="absolute inset-0 flex overflow-hidden"
+			style={{ pointerEvents: "none" }}
+		>
+			{imageUrls.map((url, i) => (
+				<img
+					// biome-ignore lint/suspicious/noArrayIndexKey: Filmstrip layout static based on index
+					key={i}
+					src={url}
+					alt="frame"
+					className="h-full object-cover shrink-0"
+					style={{
+						width: `${100 / imageUrls.length}%`,
+					}}
+				/>
+			))}
+		</div>
 	);
 }
 
@@ -860,11 +883,37 @@ const ELEMENT_CONTENT_RENDERERS: Record<
 		const mediaAsset = mediaAssets.find(
 			(asset) => asset.id === videoElement.mediaId,
 		);
-		return renderTiledMedia({
-			element: videoElement,
-			imageUrl: mediaAsset?.thumbnailUrl,
-			track,
-		});
+
+		// SCRUM-15: video clips with audio get a small waveform strip under
+		// the filmstrip. Pure visualisation — volume stays at playback level.
+		const showWaveform = mediaAsset
+			? mediaSupportsAudio({ media: mediaAsset })
+			: false;
+
+		const images = mediaAsset?.filmstripUrls?.length 
+			? mediaAsset.filmstripUrls 
+			: (mediaAsset?.thumbnailUrl ? [mediaAsset.thumbnailUrl] : []);
+
+		return (
+			<div className="relative flex size-full flex-col">
+				<div className={cn("relative w-full", showWaveform ? "h-[40px]" : "h-full")}>
+					{renderTiledMedia({
+						element: videoElement,
+						imageUrls: images,
+						track,
+					})}
+				</div>
+				{showWaveform && (
+					<div className="h-[20px] w-full min-w-0 opacity-60">
+						<AudioWaveform
+							audioUrl={mediaAsset?.url}
+							height={20}
+							className="w-full"
+						/>
+					</div>
+				)}
+			</div>
+		);
 	},
 	image: ({ element, track, mediaAssets }) => {
 		const imageElement = element as Extract<
@@ -876,7 +925,7 @@ const ELEMENT_CONTENT_RENDERERS: Record<
 		);
 		return renderTiledMedia({
 			element: imageElement,
-			imageUrl: mediaAsset?.url,
+			imageUrls: mediaAsset?.thumbnailUrl ? [mediaAsset.thumbnailUrl] : [],
 			track,
 		});
 	},

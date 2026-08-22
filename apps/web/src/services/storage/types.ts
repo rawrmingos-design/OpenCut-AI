@@ -51,6 +51,7 @@ export interface MediaAssetData {
 	sampleRate?: number;
 	ephemeral?: boolean;
 	thumbnailUrl?: string;
+	filmstripUrls?: string[];
 	/** User-defined label for organising assets (e.g. "Drone shot", "Person A cam") */
 	label?: string;
 	proxy?: ProxyInfo;
