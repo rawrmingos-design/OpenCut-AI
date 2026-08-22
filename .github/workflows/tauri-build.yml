@@ -1,0 +1,51 @@
+name: Build Tauri App
+
+on:
+  push:
+    branches:
+      - main
+      - feature/ai-clipper-baseline
+    paths:
+      - 'apps/desktop/**'
+      - '.github/workflows/tauri-build.yml'
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+          
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Install dependencies
+        run: bun install
+        
+      - name: Build Web App
+        # Note: Since the app is 'standalone', we skip Next.js static build for now 
+        # and configure Tauri to bundle a fallback or point to remote URL.
+        # But let's verify Next.js builds without errors first.
+        run: bun run build:web
+        
+      - name: Build Tauri (Windows)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: ./apps/desktop
+          tagName: v__VERSION__
+          releaseName: 'OpenCut AI v__VERSION__'
+          releaseBody: 'See the assets to download this version and install.'
+          releaseDraft: true
+          prerelease: false
+          args: --target x86_64-pc-windows-msvc
