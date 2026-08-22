@@ -9,6 +9,7 @@ import { webEnv } from "@opencut-ai/env/web";
 import { Inter } from "next/font/google";
 import { JsonLd } from "@/components/seo/json-ld";
 import { GoogleAnalytics } from "@/components/seo/google-analytics";
+import { PwaRegister } from "@/components/pwa-register";
 
 const siteFont = Inter({ subsets: ["latin"] });
 
@@ -48,6 +49,7 @@ export default function RootLayout({
 				>
 					<TooltipProvider>
 						<Toaster />
+						<PwaRegister />
 						{process.env.NEXT_PUBLIC_DATABUDDY_CLIENT_ID && (
 							<Script
 								src="https://cdn.databuddy.cc/databuddy.js"
