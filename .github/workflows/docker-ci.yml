@@ -41,7 +41,7 @@ jobs:
           echo "Waiting for services..."
           # Wait up to 180 seconds (Ollama + backend take time to start in GH Actions)
           for i in {1..36}; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8420/health)
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8420/health || true)
             if [ "$STATUS" = "200" ]; then
               echo "AI backend is up!"
               BACKEND_UP=1
@@ -56,8 +56,8 @@ jobs:
             exit 1
           fi
 
-          for i in {1..12}; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3200/api/health)
+          for i in {1..36}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3200/api/health || true)
             if [ "$STATUS" = "200" ]; then
               echo "Web is up!"
               WEB_UP=1
