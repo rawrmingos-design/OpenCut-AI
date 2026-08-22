@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "identifier": "com.opencutai.desktop",
   "build": {
-    "frontendDist": "./dist",
+    "frontendDist": "../dist",
     "devUrl": "http://localhost:3200",
     "beforeDevCommand": "",
     "beforeBuildCommand": ""
