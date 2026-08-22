@@ -1,5 +1,3 @@
-import EventEmitter from "eventemitter3";
-
 import {
 	Output,
 	Mp4OutputFormat,
@@ -15,6 +13,7 @@ import {
 import type { RootNode } from "./nodes/root-node";
 import type { ExportFormat, ExportQuality } from "@/types/export";
 import { CanvasRenderer } from "./canvas-renderer";
+import EventEmitter from "eventemitter3";
 
 type ExportParams = {
 	width: number;
@@ -25,6 +24,12 @@ type ExportParams = {
 	shouldIncludeAudio?: boolean;
 	audioBuffer?: AudioBuffer;
 	watermark?: boolean;
+	/** Height-based resolution override (e.g. 1080 for "1080p"). */
+	targetHeight?: number | null;
+	/** Video bitrate override (bits per second). */
+	videoBitrate?: number | null;
+	/** Audio bitrate override (bits per second). */
+	audioBitrate?: number | null;
 };
 
 const qualityMap = {
@@ -33,6 +38,34 @@ const qualityMap = {
 	high: QUALITY_HIGH,
 	very_high: QUALITY_VERY_HIGH,
 };
+
+/** Even dimensions are required by H.264 (yuv420p). */
+function toEven(value: number): number {
+	return Math.max(2, Math.round(value / 2) * 2);
+}
+
+/**
+ * Compute the output size after applying a height-based resolution override.
+ * Aspect ratio is preserved; the result is rounded to even numbers.
+ */
+export function applyResolutionOverride({
+	width,
+	height,
+	targetHeight,
+}: {
+	width: number;
+	height: number;
+	targetHeight?: number | null;
+}): { width: number; height: number } {
+	if (!targetHeight || targetHeight >= height || width <= 0 || height <= 0) {
+		return { width: toEven(width), height: toEven(height) };
+	}
+	const scale = targetHeight / height;
+	return {
+		width: toEven(width * scale),
+		height: toEven(height * scale),
+	};
+}
 
 export type SceneExporterEvents = {
 	progress: [progress: number];
@@ -47,6 +80,8 @@ export class SceneExporter extends EventEmitter<SceneExporterEvents> {
 	private quality: ExportQuality;
 	private shouldIncludeAudio: boolean;
 	private audioBuffer?: AudioBuffer;
+	private videoBitrate?: number | null;
+	private audioBitrate?: number | null;
 
 	private isCancelled = false;
 
@@ -59,11 +94,15 @@ export class SceneExporter extends EventEmitter<SceneExporterEvents> {
 		shouldIncludeAudio,
 		audioBuffer,
 		watermark,
+		targetHeight,
+		videoBitrate,
+		audioBitrate,
 	}: ExportParams) {
+		const outputSize = applyResolutionOverride({ width, height, targetHeight });
 		super();
 		this.renderer = new CanvasRenderer({
-			width,
-			height,
+			width: outputSize.width,
+			height: outputSize.height,
 			fps,
 			watermark: watermark ?? false,
 		});
@@ -72,6 +111,8 @@ export class SceneExporter extends EventEmitter<SceneExporterEvents> {
 		this.quality = quality;
 		this.shouldIncludeAudio = shouldIncludeAudio ?? false;
 		this.audioBuffer = audioBuffer;
+		this.videoBitrate = videoBitrate;
+		this.audioBitrate = audioBitrate;
 	}
 
 	cancel(): void {
@@ -96,7 +137,7 @@ export class SceneExporter extends EventEmitter<SceneExporterEvents> {
 
 		const videoSource = new CanvasSource(this.renderer.canvas, {
 			codec: this.format === "webm" ? "vp9" : "avc",
-			bitrate: qualityMap[this.quality],
+			bitrate: this.videoBitrate ?? qualityMap[this.quality],
 		});
 
 		output.addVideoTrack(videoSource, { frameRate: fps });
@@ -111,14 +152,14 @@ export class SceneExporter extends EventEmitter<SceneExporterEvents> {
 					codec: "mp4a.40.2",
 					sampleRate: this.audioBuffer.sampleRate,
 					numberOfChannels: this.audioBuffer.numberOfChannels,
-					bitrate: 192000,
+					bitrate: this.audioBitrate ?? 192000,
 				});
 				if (!supported) audioCodec = "opus";
 			}
 
 			audioSource = new AudioBufferSource({
 				codec: audioCodec,
-				bitrate: qualityMap[this.quality],
+				bitrate: this.audioBitrate ?? qualityMap[this.quality],
 			});
 			output.addAudioTrack(audioSource);
 		}

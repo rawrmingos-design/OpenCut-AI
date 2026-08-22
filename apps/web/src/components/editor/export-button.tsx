@@ -19,8 +19,10 @@ import { Check, Copy, Download, RotateCcw } from "lucide-react";
 import {
 	EXPORT_FORMAT_VALUES,
 	EXPORT_QUALITY_VALUES,
+	EXPORT_RESOLUTION_VALUES,
 	type ExportFormat,
 	type ExportQuality,
+	type ExportResolution,
 } from "@/types/export";
 import {
 	Section,
@@ -37,6 +39,12 @@ function isExportFormat(value: string): value is ExportFormat {
 
 function isExportQuality(value: string): value is ExportQuality {
 	return EXPORT_QUALITY_VALUES.some((qualityValue) => qualityValue === value);
+}
+
+function isExportResolution(value: string): value is ExportResolution {
+	return EXPORT_RESOLUTION_VALUES.some(
+		(resolutionValue) => resolutionValue === value,
+	);
 }
 
 export function ExportButton() {
@@ -105,6 +113,9 @@ function ExportPopover({
 		DEFAULT_EXPORT_OPTIONS.includeAudio ?? true,
 	);
 	const [shouldIncludeWatermark, setShouldIncludeWatermark] = useState(true);
+	const [resolution, setResolution] = useState<string>("source");
+	const [videoBitrate, setVideoBitrate] = useState<number | null>(null);
+	const [audioBitrate, setAudioBitrate] = useState<number | null>(null);
 
 	const handlePresetSelect = (presetId: string) => {
 		const preset = EXPORT_PRESETS.find((p) => p.id === presetId);
@@ -122,11 +133,14 @@ function ExportPopover({
 
 		const result = await editor.project.export({
 			options: {
-			format,
-			quality,
-			fps: activeProject.settings.fps,
-			includeAudio: shouldIncludeAudio,
-			includeWatermark: shouldIncludeWatermark,
+				format,
+				quality,
+				fps: activeProject.settings.fps,
+				includeAudio: shouldIncludeAudio,
+				includeWatermark: shouldIncludeWatermark,
+				resolution: isExportResolution(resolution) ? resolution : "source",
+				videoBitrate: videoBitrate ?? undefined,
+				audioBitrate: audioBitrate ?? undefined,
 			},
 		});
 
@@ -271,14 +285,109 @@ function ExportPopover({
 											<div className="flex items-center space-x-2">
 												<Checkbox
 													id="include-audio"
-								checked={shouldIncludeAudio}
-												onCheckedChange={(checked) =>
-													setShouldIncludeAudio(!!checked)
-												}
+													checked={shouldIncludeAudio}
+													onCheckedChange={(checked) =>
+														setShouldIncludeAudio(!!checked)
+													}
 												/>
 												<Label htmlFor="include-audio">
 													Include audio in export
 												</Label>
+											</div>
+										</SectionContent>
+									</Section>
+
+									<Section collapsible defaultOpen={false}>
+										<SectionHeader>
+											<SectionTitle>Advanced</SectionTitle>
+										</SectionHeader>
+										<SectionContent>
+											<div className="space-y-4">
+												<div className="space-y-1.5">
+													<Label htmlFor="export-resolution">
+														Resolution
+													</Label>
+													<select
+														id="export-resolution"
+														value={resolution}
+														onChange={(e) =>
+															setResolution(e.target.value)
+														}
+														className="h-8 w-full rounded-md border border-border bg-background px-2 text-xs"
+													>
+														{EXPORT_RESOLUTION_VALUES.map((r) => (
+															<option key={r} value={r}>
+																{r === "source"
+																	? "Source (canvas size)"
+																	: r === "2160p"
+																		? "2160p (4K)"
+																		: r === "1440p"
+																			? "1440p (2K)"
+																			: r === "1080p"
+																				? "1080p (Full HD)"
+																				: r === "720p"
+																					? "720p (HD)"
+																					: r === "480p"
+																						? "480p (SD)"
+																						: "360p (Low)"}
+															</option>
+														))}
+													</select>
+													<p className="text-[10px] text-muted-foreground">
+														Downscales from the canvas while keeping
+														aspect ratio. Upscaling is not applied.
+													</p>
+												</div>
+
+												<div className="space-y-1.5">
+													<Label htmlFor="export-video-bitrate">
+														Video bitrate (kbps)
+													</Label>
+													<input
+														id="export-video-bitrate"
+														type="number"
+														min={0}
+														step={500}
+														placeholder="Auto (quality preset)"
+														value={videoBitrate ?? ""}
+														onChange={(e) => {
+															const v = e.target.value.trim();
+															const n = Number(v);
+															setVideoBitrate(
+																v && Number.isFinite(n) && n > 0
+																	? n * 1000
+																	: null,
+															);
+														}}
+														className="h-8 w-full rounded-md border border-border bg-background px-2 text-xs"
+													/>
+												</div>
+
+												{shouldIncludeAudio && (
+													<div className="space-y-1.5">
+														<Label htmlFor="export-audio-bitrate">
+															Audio bitrate (kbps)
+														</Label>
+														<input
+															id="export-audio-bitrate"
+															type="number"
+															min={0}
+															step={32}
+															placeholder="Auto (quality preset)"
+															value={audioBitrate ?? ""}
+															onChange={(e) => {
+																const v = e.target.value.trim();
+																const n = Number(v);
+																setAudioBitrate(
+																	v && Number.isFinite(n) && n > 0
+																		? n * 1000
+																		: null,
+																);
+															}}
+															className="h-8 w-full rounded-md border border-border bg-background px-2 text-xs"
+														/>
+													</div>
+												)}
 											</div>
 										</SectionContent>
 									</Section>

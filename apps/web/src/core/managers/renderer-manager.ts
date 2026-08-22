@@ -96,6 +96,12 @@ export class RendererManager {
 		onCancel?: () => boolean;
 	}): Promise<ExportResult> {
 		const { format, quality, fps, includeAudio, includeWatermark } = options;
+		const targetHeight =
+			options.resolution && options.resolution !== "source"
+				? Number.parseInt(options.resolution.replace("p", ""), 10)
+				: null;
+		const videoBitrate = options.videoBitrate ?? null;
+		const audioBitrate = options.audioBitrate ?? null;
 
 		try {
 			const tracks = this.editor.timeline.getTracks();
@@ -141,6 +147,9 @@ export class RendererManager {
 				quality,
 				shouldIncludeAudio: !!includeAudio,
 				audioBuffer: audioBuffer || undefined,
+				targetHeight,
+				videoBitrate,
+				audioBitrate,
 			});
 
 			exporter.on("progress", (progress) => {
