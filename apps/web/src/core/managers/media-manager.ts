@@ -41,6 +41,23 @@ export class MediaManager {
 			console.error("Failed to save media asset:", error);
 			this.assets = this.assets.filter((asset) => asset.id !== newAsset.id);
 			this.notify();
+			return newAsset.id; // Return anyway, even if persistence fails
+		}
+
+		// Auto-trigger proxy generation only when proxy editing is enabled.
+		// Keep normal imports fast and preserve the user's project setting.
+		const project = this.editor.project.getActive();
+		if (project?.settings.proxyEditing && this.needsProxy(newAsset)) {
+			const resolution = project.settings.proxyResolution || "720p";
+
+			// Fire and forget so importing remains responsive.
+			this.generateProxyForAsset({
+				assetId: newAsset.id,
+				projectId,
+				resolution,
+			}).catch((err) => {
+				console.error("Auto proxy generation failed:", err);
+			});
 		}
 
 		return newAsset.id;

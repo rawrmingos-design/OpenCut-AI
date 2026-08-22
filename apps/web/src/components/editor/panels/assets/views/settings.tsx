@@ -31,7 +31,11 @@ import { aiClient } from "@/lib/ai-client";
 import type { TurboQuantStatus } from "@/types/ai";
 import { toast } from "sonner";
 import { FactCheckView } from "./factcheck";
-import type { ProxyResolution } from "@/services/storage/types";
+import {
+	PROXY_THRESHOLD_WIDTH,
+	PROXY_THRESHOLD_HEIGHT,
+	type ProxyResolution,
+} from "@/services/storage/types";
 
 const ORIGINAL_PRESET_VALUE = "original";
 
@@ -230,7 +234,7 @@ function ProxyEditingSection() {
 			a.type === "video" &&
 			a.width &&
 			a.height &&
-			(a.width > 1920 || a.height > 1080),
+			(a.width > PROXY_THRESHOLD_WIDTH || a.height > PROXY_THRESHOLD_HEIGHT),
 	);
 
 	const toggleProxy = useCallback(() => {
