@@ -56,6 +56,8 @@ export function SubtitleStyleControls({ subtitleTrackIds }: { subtitleTrackIds: 
 							highlightColor: style.highlightColor,
 							fontWeight: style.fontWeight,
 							wordPopScale: style.wordPopScale,
+							background: { ...style.background },
+							transform: { ...element.transform, position: { ...style.transform.position } },
 						}
 					});
 				}

@@ -725,12 +725,12 @@ export function Captions() {
 		track: SubtitleTrackInfo,
 		format: "srt" | "vtt",
 	) => {
-		// Prefer the stored translation (clean text); fall back to the live
-		// timeline track's text elements if no translation is stored.
-		const stored = useTranscriptStore
-			.getState()
-			.translations.find((t) => t.languageCode === track.language);
-		const segments = stored?.segments ?? [];
+		// Prefer the stored translation (clean text); fall back to original timeline transcript.
+		const transcriptStore = useTranscriptStore.getState();
+		const segments = track.language === "original"
+			? transcriptStore.segments
+			: transcriptStore.translations.find((t) => t.languageCode === track.language)?.segments ?? [];
+
 		if (segments.length === 0) {
 			toast.error("No segments to export for this track.");
 			return;
