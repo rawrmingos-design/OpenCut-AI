@@ -4,16 +4,22 @@ Runs against a live stack (ai-backend on :8420). Only exercises REJECTION
 paths — no media files required.
 """
 import os
+from pathlib import Path
+
 import pytest
 import httpx
 
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).resolve().parents[3] / ".env")
 AI_BACKEND_URL = os.getenv("OPENCUTAI_API_URL", "http://localhost:8420")
+HEADERS = {"X-API-Key": os.getenv("OPENCUTAI_API_KEY", "")}
 
 
 @pytest.mark.asyncio
 async def test_render_rejects_path_outside_allowed_dirs():
     """input_path outside UPLOAD_DIR/GENERATED_DIR must be rejected (arbitrary read)."""
-    async with httpx.AsyncClient(base_url=AI_BACKEND_URL) as client:
+    async with httpx.AsyncClient(base_url=AI_BACKEND_URL, headers=HEADERS) as client:
         resp = await client.post(
             "/api/export/render",
             json={"input_path": "/etc/passwd"},
@@ -26,7 +32,7 @@ async def test_render_rejects_path_outside_allowed_dirs():
 @pytest.mark.asyncio
 async def test_render_rejects_traversal_path():
     """Encoded traversal must be rejected even if it resolves inside."""
-    async with httpx.AsyncClient(base_url=AI_BACKEND_URL) as client:
+    async with httpx.AsyncClient(base_url=AI_BACKEND_URL, headers=HEADERS) as client:
         resp = await client.post(
             "/api/export/render",
             json={"input_path": "/tmp/../etc/shadow"},
@@ -38,7 +44,7 @@ async def test_render_rejects_traversal_path():
 @pytest.mark.asyncio
 async def test_render_rejects_ffmpeg_argument_injection_in_codec():
     """Codec field is interpolated into the command line — only allowlisted values pass."""
-    async with httpx.AsyncClient(base_url=AI_BACKEND_URL) as client:
+    async with httpx.AsyncClient(base_url=AI_BACKEND_URL, headers=HEADERS) as client:
         # Use a plausible in-bounds input path; option validation runs BEFORE
         # existence check so no file needs to exist.
         resp = await client.post(
@@ -55,7 +61,7 @@ async def test_render_rejects_ffmpeg_argument_injection_in_codec():
 
 @pytest.mark.asyncio
 async def test_render_rejects_invalid_bitrate():
-    async with httpx.AsyncClient(base_url=AI_BACKEND_URL) as client:
+    async with httpx.AsyncClient(base_url=AI_BACKEND_URL, headers=HEADERS) as client:
         resp = await client.post(
             "/api/export/render",
             json={
@@ -71,7 +77,7 @@ async def test_render_rejects_invalid_bitrate():
 @pytest.mark.asyncio
 async def test_render_accepts_valid_options_but_missing_file_is_404():
     """Whitelisted options + in-bounds path but nonexistent file -> 404 (not 400)."""
-    async with httpx.AsyncClient(base_url=AI_BACKEND_URL) as client:
+    async with httpx.AsyncClient(base_url=AI_BACKEND_URL, headers=HEADERS) as client:
         resp = await client.post(
             "/api/export/render",
             json={
