@@ -15,6 +15,45 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/export", tags=["export"], dependencies=[Depends(get_api_key)])
 
+# SCRUM-50: strict whitelists — these values are interpolated into the FFmpeg
+# command line, so anything outside the allowlist is rejected outright.
+_ALLOWED_OUTPUT_FORMATS = {"mp4", "webm", "mov"}
+_ALLOWED_VIDEO_CODECS = {"libx264", "libx265", "libvpx-vp9", "h264_nvenc", "hevc_nvenc"}
+_ALLOWED_AUDIO_CODECS = {"aac", "libopus", "libmp3lame", "pcm_s16le"}
+_ALLOWED_PRESETS = {
+    "ultrafast", "superfast", "veryfast", "faster",
+    "fast", "medium", "slow", "slower", "veryslow",
+}
+_BITRATE_RE = __import__("re").compile(r"^\d+[kKmM]?$")
+
+# SCRUM-50: uploaded/generated files may only come from these directories.
+_ALLOWED_INPUT_DIRS = [settings.UPLOAD_DIR, settings.GENERATED_DIR]
+
+
+def _validate_input_path(path: str) -> str:
+    """Reject paths outside UPLOAD_DIR/GENERATED_DIR (path traversal / arbitrary read)."""
+    real = os.path.realpath(path)
+    if not any(real.startswith(os.path.realpath(d) + os.sep) for d in _ALLOWED_INPUT_DIRS):
+        raise HTTPException(status_code=400, detail="Invalid input path")
+    return real
+
+
+def _validate_render_options(request: "RenderRequest") -> None:
+    """Reject any option value that is not on the FFmpeg argument whitelist."""
+    import re
+
+    if request.output_format not in _ALLOWED_OUTPUT_FORMATS:
+        raise HTTPException(status_code=400, detail=f"Unsupported output format '{request.output_format}'")
+    if request.video_codec not in _ALLOWED_VIDEO_CODECS:
+        raise HTTPException(status_code=400, detail=f"Unsupported video codec '{request.video_codec}'")
+    if request.audio_codec not in _ALLOWED_AUDIO_CODECS:
+        raise HTTPException(status_code=400, detail=f"Unsupported audio codec '{request.audio_codec}'")
+    if request.preset not in _ALLOWED_PRESETS:
+        raise HTTPException(status_code=400, detail=f"Unsupported preset '{request.preset}'")
+    for label, value in (("video_bitrate", request.video_bitrate), ("audio_bitrate", request.audio_bitrate)):
+        if not _BITRATE_RE.match(value or ""):
+            raise HTTPException(status_code=400, detail=f"Invalid {label} '{value}'")
+
 
 class RenderRequest(BaseModel):
     """Request to render/export a video project."""
@@ -48,7 +87,11 @@ async def render_video(request: RenderRequest) -> RenderResponse:
 
     Applies the specified encoding settings and optional trimming.
     """
-    if not os.path.exists(request.input_path):
+    # SCRUM-50: validate BEFORE touching the filesystem or building the command
+    input_path = _validate_input_path(request.input_path)
+    _validate_render_options(request)
+
+    if not os.path.exists(input_path):
         raise HTTPException(status_code=404, detail="Input file not found.")
 
     output_filename = f"export_{uuid.uuid4().hex[:8]}.{request.output_format}"
@@ -61,7 +104,7 @@ async def render_video(request: RenderRequest) -> RenderResponse:
     # Input trimming
     if request.start_time is not None:
         cmd.extend(["-ss", str(request.start_time)])
-    cmd.extend(["-i", request.input_path])
+    cmd.extend(["-i", input_path])
     if request.end_time is not None:
         if request.start_time is not None:
             duration = request.end_time - request.start_time

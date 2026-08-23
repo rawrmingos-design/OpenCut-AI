@@ -1,21 +1,72 @@
 """FastAPI application entry point."""
 
 import logging
+import json
+import time
 from contextlib import asynccontextmanager
-
-from fastapi import FastAPI
+from typing import Any
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.config import settings
 from app.routes import analyze, audio, background, broll, command, dub, engagement, export, factcheck, generate, llm, media, podcast, sarvam, search, setup, smallest, template, transcribe, transcribe_ws, translate, tts, turboquant, video, youtube
 
-# Configure logging
-logging.basicConfig(
-    level=logging.DEBUG if settings.DEBUG else logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
+class JSONFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        log_obj: dict[str, Any] = {
+            "timestamp": self.formatTime(record, self.datefmt),
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+        }
+        if hasattr(record, "job_id"):
+            log_obj["job_id"] = getattr(record, "job_id")
+        if hasattr(record, "duration"):
+            log_obj["duration_ms"] = getattr(record, "duration")
+        if hasattr(record, "gpu_used_mb"):
+            log_obj["gpu_used_mb"] = getattr(record, "gpu_used_mb")
+
+        if record.exc_info:
+            log_obj["error"] = self.formatException(record.exc_info)
+
+        return json.dumps(log_obj)
+
 logger = logging.getLogger(__name__)
+
+def setup_logging():
+    root_logger = logging.getLogger()
+    # Clear existing handlers
+    for handler in root_logger.handlers[:]:
+        root_logger.removeHandler(handler)
+
+    handler = logging.StreamHandler()
+    if settings.DEBUG:
+        handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
+    else:
+        handler.setFormatter(JSONFormatter())
+
+    root_logger.addHandler(handler)
+    root_logger.setLevel(logging.DEBUG if settings.DEBUG else logging.INFO)
+
+setup_logging()
+
+class RequestLoggingMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        start_time = time.perf_counter()
+        response = await call_next(request)
+        duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
+        logger.info(
+            "HTTP Request",
+            extra={
+                "method": request.method,
+                "path": request.url.path,
+                "status_code": response.status_code,
+                "duration_ms": duration_ms
+            }
+        )
+        return response
 
 
 @asynccontextmanager
@@ -72,6 +123,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# SCRUM-36: structured request logging (method, path, status, duration_ms)
+app.add_middleware(RequestLoggingMiddleware)
 
 # Static files for generated content
 app.mount("/generated", StaticFiles(directory=settings.GENERATED_DIR), name="generated")
