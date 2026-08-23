@@ -3,6 +3,7 @@ import type { RootNode } from "@/services/renderer/nodes/root-node";
 import type { ExportOptions, ExportResult } from "@/types/export";
 import { CanvasRenderer } from "@/services/renderer/canvas-renderer";
 import { SceneExporter } from "@/services/renderer/scene-exporter";
+import { exportDesktopProject } from "@/services/renderer/desktop-renderer";
 import { buildScene } from "@/services/renderer/scene-builder";
 import { createTimelineAudioBuffer } from "@/lib/media/audio";
 import { formatTimeCode, getLastFrameTime } from "@/lib/time";
@@ -115,6 +116,15 @@ export class RendererManager {
 			const duration = this.editor.timeline.getTotalDuration();
 			if (duration === 0) {
 				return { success: false, error: "Project is empty" };
+			}
+
+			// If running inside Tauri desktop app, use the native renderer
+			if (typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__) {
+				return await exportDesktopProject({
+					editor: this.editor,
+					options,
+					onProgress,
+				});
 			}
 
 			const exportFps = fps || activeProject.settings.fps;

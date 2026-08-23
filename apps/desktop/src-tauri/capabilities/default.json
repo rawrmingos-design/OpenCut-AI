@@ -6,6 +6,12 @@
     "main"
   ],
   "permissions": [
-    "core:default"
+    "core:default",
+    "core:event:default",
+    "fs:default",
+    "fs:allow-temp-write-recursive",
+    "fs:allow-temp-read-recursive",
+    "os:default",
+    "dialog:default"
   ]
 }

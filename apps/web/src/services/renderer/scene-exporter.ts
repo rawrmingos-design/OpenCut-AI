@@ -32,7 +32,7 @@ type ExportParams = {
 	audioBitrate?: number | null;
 };
 
-const qualityMap = {
+export const qualityMap = {
 	low: QUALITY_LOW,
 	medium: QUALITY_MEDIUM,
 	high: QUALITY_HIGH,

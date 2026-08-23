@@ -33,6 +33,14 @@ jobs:
       - name: Install dependencies
         run: bun install
         
+      - name: Download FFmpeg sidecar
+        run: |
+          mkdir -p apps/desktop/src-tauri/binaries
+          curl -L -O https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip
+          unzip -j ffmpeg-master-latest-win64-gpl.zip "ffmpeg-master-latest-win64-gpl/bin/ffmpeg.exe"
+          mv ffmpeg.exe apps/desktop/src-tauri/binaries/ffmpeg-x86_64-pc-windows-msvc.exe
+          rm ffmpeg-master-latest-win64-gpl.zip
+        
       - name: Build Tauri (Windows)
         uses: tauri-apps/tauri-action@v0
         env:
