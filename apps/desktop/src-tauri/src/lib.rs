@@ -332,19 +332,64 @@ pub(crate) fn kill_pid(pid: u32) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Install a panic hook so Rust-side panics are persisted to a crash log
+    // instead of vanishing silently (SCRUM-47 hardening). Std-only on purpose:
+    // no chrono/dirs deps; timestamp = unix seconds, path resolved manually.
+    let default_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        let ts = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+        let msg = info.to_string();
+        let loc = info
+            .location()
+            .map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column()))
+            .unwrap_or_else(|| "unknown".into());
+        let line = format!("[{ts}] PANIC at {loc}: {msg}\n");
+        // Best-effort append; never panic inside the panic hook.
+        let base = if cfg!(target_os = "windows") {
+            std::env::var("APPDATA").ok().map(std::path::PathBuf::from)
+        } else {
+            std::env::var("XDG_DATA_HOME")
+                .ok()
+                .map(std::path::PathBuf::from)
+                .or_else(|| {
+                    std::env::var("HOME")
+                        .ok()
+                        .map(|h| std::path::PathBuf::from(h).join(".local/share"))
+                })
+        };
+        if let Some(dir) = base.map(|b| b.join("com.opencutai.desktop")) {
+            let _ = std::fs::create_dir_all(&dir);
+            use std::io::Write;
+            if let Ok(mut f) = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(dir.join("crash.log"))
+            {
+                let _ = f.write_all(line.as_bytes());
+            }
+        }
+        eprint!("{line}");
+        default_hook(info);
+    }));
+
     tauri::Builder::default()
         .manage(RenderState::default())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            if cfg!(debug_assertions) {
-                app.handle().plugin(
-                    tauri_plugin_log::Builder::default()
-                        .level(log::LevelFilter::Info)
-                        .build(),
-                )?;
-            }
+            app.handle().plugin(
+                tauri_plugin_log::Builder::default()
+                    .level(if cfg!(debug_assertions) {
+                        log::LevelFilter::Debug
+                    } else {
+                        log::LevelFilter::Info
+                    })
+                    .build(),
+            )?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

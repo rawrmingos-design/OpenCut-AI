@@ -25,6 +25,8 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 } from "@/components/ui/popover";
+import { useAppSettingsStore } from "@/stores/app-settings-store";
+import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/utils/ui";
 import { aiClient } from "@/lib/ai-client";
@@ -101,6 +103,16 @@ export function SettingsView() {
 						<APIKeysSection />
 					</SectionContent>
 				</Section>
+
+				<Section>
+					<SectionHeader>
+						<SectionTitle>Privacy & Telemetry</SectionTitle>
+					</SectionHeader>
+					<SectionContent>
+						<PrivacySection />
+					</SectionContent>
+				</Section>
+
 				{/* Fact Check renders its own PanelView header */}
 				<FactCheckView />
 				</div>
@@ -1182,6 +1194,27 @@ function APIKeysSection() {
 					</div>
 				);
 			})}
+		</div>
+	);
+}
+
+
+function PrivacySection() {
+	const optIn = useAppSettingsStore((s) => s.optInCrashReporting);
+	const updateSettings = useAppSettingsStore((s) => s.updateSettings);
+
+	return (
+		<div className="flex flex-col gap-3">
+			<p className="text-[11px] text-muted-foreground leading-relaxed">
+				Help us improve OpenCut by automatically sending anonymous crash reports when something breaks.
+			</p>
+			<div className="flex items-center justify-between">
+				<Label className="text-xs">Send crash reports</Label>
+				<Switch
+					checked={optIn}
+					onCheckedChange={(val) => updateSettings({ optInCrashReporting: val })}
+				/>
+			</div>
 		</div>
 	);
 }
