@@ -218,21 +218,21 @@ fn run_render(
 	Ok(())
 }
 
-#[tauri::command]
-pub fn probe_hw_encoder(app: AppHandle, codec: String) -> String {
+#[tauri::command(rename = "probe_hw_encoder")]
+pub fn cmd_probe_hw_encoder(app: AppHandle, codec: String) -> String {
 	detect_hw_encoder(&ffmpeg_path(&app), &codec)
 }
 
-#[tauri::command]
-pub fn cancel_render(state: State<'_, RenderState>) {
+#[tauri::command(rename = "cancel_render")]
+pub fn cmd_cancel_render(state: State<'_, RenderState>) {
 	state.cancelled.store(true, Ordering::SeqCst);
 	if let Some(pid) = *state.child_pid.lock().unwrap() {
 		kill_pid(pid);
 	}
 }
 
-#[tauri::command]
-pub async fn render_video_native(
+#[tauri::command(rename = "render_video_native")]
+pub async fn cmd_render_video_native(
 	app: AppHandle,
 	request: RenderRequest,
 	state: State<'_, RenderState>,
@@ -276,9 +276,9 @@ pub fn run() {
 			Ok(())
 		})
 		.invoke_handler(tauri::generate_handler![
-			probe_hw_encoder,
-			render_video_native,
-			cancel_render,
+			cmd_probe_hw_encoder,
+			cmd_render_video_native,
+			cmd_cancel_render,
 		])
 		.run(tauri::generate_context!())
 		.expect("error while running tauri application");
