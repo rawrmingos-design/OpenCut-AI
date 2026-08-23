@@ -1,6 +1,14 @@
 import { useState, useCallback } from "react";
 import { aiClient, AIClientError } from "@/lib/ai-client";
+import {
+	resolveProvider,
+	resolvedProviderType,
+} from "@/lib/ai/registry";
+import { registerBuiltinProviders } from "@/lib/ai/providers";
 import { useTranscriptStore } from "@/stores/transcript-store";
+
+// Register built-in cloud + local-wasm providers once
+registerBuiltinProviders();
 
 function formatTranscriptionError(error: unknown): string {
 	if (error instanceof AIClientError) {
@@ -22,6 +30,7 @@ function formatTranscriptionError(error: unknown): string {
 
 export function useTranscription() {
 	const [error, setError] = useState<string | null>(null);
+	const [activeProvider, setActiveProvider] = useState<string | null>(null);
 
 	const {
 		isTranscribing,
@@ -39,10 +48,42 @@ export function useTranscription() {
 			setProgress(0);
 
 			try {
-				setProgress(10);
+				setProgress(5);
 
-				const result = await aiClient.transcribe(file, language);
+				const args = { file, language };
+				let result;
+				let providerType = resolvedProviderType({
+					feature: "transcribe",
+				});
 
+				// Primary attempt via registry resolution
+				const localImpl = resolveProvider({ feature: "transcribe" });
+				if (!localImpl) {
+					throw new AIClientError(
+						"No transcription provider available",
+						"unknown",
+					);
+				}
+				setActiveProvider(providerType);
+
+				try {
+					result = await localImpl(args);
+				} catch (localErr) {
+					// Fallback chain: if a local/wasm provider failed, retry on cloud
+					if (providerType !== "cloud") {
+						console.warn(
+							"[ai-modules] local transcription failed, falling back to cloud:",
+							localErr,
+						);
+						providerType = "cloud";
+						setActiveProvider("cloud");
+						result = await aiClient.transcribe(file, language);
+					} else {
+						throw localErr;
+					}
+				}
+
+				setProgress(95);
 				setSegments(result.segments);
 				setLanguage(result.language);
 				setProgress(100);
@@ -68,6 +109,7 @@ export function useTranscription() {
 		isTranscribing,
 		progress,
 		error,
+		activeProvider,
 		clearError,
 	};
 }
