@@ -6,7 +6,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { tempDir, join } from "@tauri-apps/api/path";
 import { save } from "@tauri-apps/plugin-dialog";
-import { writeFile, mkdir } from "@tauri-apps/plugin-fs";
+import { mkdir, remove, writeFile } from "@tauri-apps/plugin-fs";
 import { qualityMap } from "./scene-exporter";
 
 interface RenderProgress {
@@ -55,7 +55,8 @@ export async function exportDesktopProject({
 	// Only process the first track for now (proof of concept for native render bridge)
 	// Multi-track composition is complex in FFmpeg and usually requires overlay filters.
 	// For basic trimming & concat, we stick to the main track.
-	const mainTrack = tracks.find((t) => t.type === "video" && t.isMain) || tracks[0];
+	const mainTrack =
+		tracks.find((t) => t.type === "video" && t.isMain) || tracks[0];
 	if (!mainTrack) return { success: false, error: "No tracks found" };
 
 	for (const element of (mainTrack as any).elements) {
@@ -77,12 +78,16 @@ export async function exportDesktopProject({
 			spec: {
 				src: "", // will fill after streaming to temp
 				in_point: element.trimStart || 0,
-				out_point: element.trimEnd || element.sourceDuration || element.duration,
+				out_point:
+					element.trimEnd || element.sourceDuration || element.duration,
 				volume: (element as any).volume ?? 1.0,
 			},
 		});
 
-		if (element.type === "audio" || (element.type === "video" && !(element as any).muted)) {
+		if (
+			element.type === "audio" ||
+			(element.type === "video" && !(element as any).muted)
+		) {
 			hasAudio = true;
 		}
 	}
@@ -166,33 +171,42 @@ export async function exportDesktopProject({
 		});
 
 		// 4. Invoke Rust Native Render
-		await invoke("render_video_native", {
-			request: {
-				clips: clips.map((c) => c.spec),
-				out_path: outPath,
-				width: w,
-				height: h,
-				fps: exportFps,
-				codec: options.format === "webm" ? "vp9" : "h264",
-				bitrate_kbps: Math.floor(
-					(options.videoBitrate ??
-						(options.quality === "low"
-							? 2000
-							: options.quality === "medium"
-								? 5000
-								: options.quality === "high"
-									? 10000
-									: 20000)) / 1000,
-				),
-				has_audio: hasAudio && (options.includeAudio ?? true),
-			},
-		});
-
-		await progressPromise;
+		try {
+			await invoke("render_video_native", {
+				request: {
+					clips: clips.map((c) => c.spec),
+					out_path: outPath,
+					width: w,
+					height: h,
+					fps: exportFps,
+					codec: options.format === "webm" ? "vp9" : "h264",
+					bitrate_kbps: Math.floor(
+						(options.videoBitrate ??
+							(options.quality === "low"
+								? 2000
+								: options.quality === "medium"
+									? 5000
+									: options.quality === "high"
+										? 10000
+										: 20000)) / 1000,
+					),
+					has_audio: hasAudio && (options.includeAudio ?? true),
+				},
+			});
+			await progressPromise;
+		} finally {
+			// SCRUM-33: Clean up temp chunks aggressively
+			try {
+				await remove(appTemp, { recursive: true });
+			} catch (cleanupErr) {
+				console.warn("Failed to clean up temp render directory", cleanupErr);
+			}
+		}
 
 		const unlistenError = await listenerReady;
+
 		unlistenError();
-		
+
 		onProgress?.({ progress: 1.0 });
 
 		// Desktop handles saving straight to disk via outPath, no ArrayBuffer to return to UI

@@ -42,8 +42,20 @@ export interface ExportResult {
 	cancelled?: boolean;
 }
 
+/** SCRUM-35: explicit job lifecycle states for export/render jobs. */
+export type ExportJobStatus =
+	| "idle"
+	| "preparing"
+	| "rendering"
+	| "finalizing"
+	| "done"
+	| "cancelled"
+	| "failed";
+
 export interface ExportState {
 	isExporting: boolean;
 	progress: number;
 	result: ExportResult | null;
+	/** Detailed job state (SCRUM-35). Kept in sync with isExporting/result. */
+	status: ExportJobStatus;
 }

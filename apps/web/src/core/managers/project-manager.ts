@@ -56,6 +56,7 @@ export class ProjectManager {
 		isExporting: false,
 		progress: 0,
 		result: null,
+		status: "idle",
 	};
 	private exportCancelRequested = false;
 
@@ -199,22 +200,38 @@ export class ProjectManager {
 
 	async export({ options }: { options: ExportOptions }): Promise<ExportResult> {
 		this.exportCancelRequested = false;
-		this.exportState = { isExporting: true, progress: 0, result: null };
+		this.exportState = {
+			isExporting: true,
+			progress: 0,
+			result: null,
+			status: "preparing",
+		};
 		this.notify();
 
 		const result = await this.editor.renderer.exportProject({
 			options,
 			onProgress: ({ progress }) => {
-				this.exportState = { ...this.exportState, progress };
+				// Transition to "rendering" once actual work begins (progress > 5%)
+				const status =
+					progress < 0.05
+						? "preparing"
+						: progress >= 0.99
+							? "finalizing"
+							: "rendering";
+				this.exportState = { ...this.exportState, progress, status };
 				this.notify();
 			},
 			onCancel: () => this.exportCancelRequested,
 		});
 
+		const finalStatus: import("@/types/export").ExportJobStatus =
+			result.cancelled ? "cancelled" : result.success ? "done" : "failed";
+
 		this.exportState = {
 			isExporting: false,
 			progress: this.exportState.progress,
 			result,
+			status: finalStatus,
 		};
 		this.notify();
 
@@ -223,10 +240,24 @@ export class ProjectManager {
 
 	cancelExport(): void {
 		this.exportCancelRequested = true;
+		// Immediately reflect cancel intent in state (SCRUM-35)
+		if (this.exportState.isExporting) {
+			this.exportState = {
+				...this.exportState,
+				result: { success: false, cancelled: true },
+				status: "cancelled",
+			};
+			this.notify();
+		}
 	}
 
 	clearExportState(): void {
-		this.exportState = { isExporting: false, progress: 0, result: null };
+		this.exportState = {
+			isExporting: false,
+			progress: 0,
+			result: null,
+			status: "idle",
+		};
 		this.notify();
 	}
 

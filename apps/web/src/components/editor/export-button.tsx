@@ -427,24 +427,40 @@ function ExportPopover({
 							</>
 						)}
 
-						{isExporting && (
+						{(isExporting || status === "cancelled" || status === "failed") && (
 							<div className="space-y-4 p-3">
-							<div className="flex flex-col gap-2">
-								<div className="flex items-center justify-between text-center">
-									<p className="text-muted-foreground text-sm">
-										{Math.round(progress * 100)}%
-									</p>
-									<p className="text-muted-foreground text-sm">100%</p>
+								<div className="flex flex-col gap-2">
+									<div className="flex items-center justify-between text-center">
+										<p className="text-muted-foreground text-sm">
+											{status === "cancelled"
+												? "Cancelled"
+												: status === "failed"
+													? "Failed"
+													: status === "preparing"
+														? "Preparing…"
+														: status === "finalizing"
+															? "Finalizing…"
+															: `${Math.round(progress * 100)}%`}
+										</p>
+										<p className="text-muted-foreground text-sm">100%</p>
+									</div>
+									<Progress
+										value={
+											status === "failed" || status === "cancelled"
+												? progress * 100
+												: progress * 100
+										}
+										className="w-full"
+									/>
 								</div>
-								<Progress value={progress * 100} className="w-full" />
-							</div>
 
 								<Button
 									variant="outline"
 									className="w-full rounded-md"
 									onClick={handleCancel}
+									disabled={status === "cancelled" || status === "failed"}
 								>
-									Cancel
+									{status === "cancelled" ? "Cancelled" : "Cancel"}
 								</Button>
 							</div>
 						)}
