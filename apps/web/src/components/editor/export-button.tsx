@@ -14,7 +14,11 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/utils/ui";
-import { getExportMimeType, getExportFileExtension, downloadBuffer } from "@/lib/export";
+import {
+	getExportMimeType,
+	getExportFileExtension,
+	downloadBuffer,
+} from "@/lib/export";
 import { Check, Copy, Download, RotateCcw } from "lucide-react";
 import {
 	EXPORT_FORMAT_VALUES,
@@ -31,7 +35,11 @@ import {
 	SectionTitle,
 } from "@/components/editor/panels/properties/section";
 import { useEditor } from "@/hooks/use-editor";
-import { DEFAULT_EXPORT_OPTIONS, EXPORT_PRESETS } from "@/constants/export-constants";
+import {
+	DEFAULT_EXPORT_OPTIONS,
+	EXPORT_PRESETS,
+} from "@/constants/export-constants";
+import { useExportQueueStore } from "@/stores/export-queue-store";
 
 function isExportFormat(value: string): value is ExportFormat {
 	return EXPORT_FORMAT_VALUES.some((formatValue) => formatValue === value);
@@ -62,7 +70,10 @@ export function ExportButton() {
 	};
 
 	return (
-		<Popover open={isExportPopoverOpen} onOpenChange={(open) => handlePopoverOpenChange({ open })}>
+		<Popover
+			open={isExportPopoverOpen}
+			onOpenChange={(open) => handlePopoverOpenChange({ open })}
+		>
 			<PopoverTrigger asChild>
 				<button
 					type="button"
@@ -100,8 +111,13 @@ function ExportPopover({
 }) {
 	const editor = useEditor();
 	const activeProject = editor.project.getActive();
-	const { isExporting, progress, result: exportResult } =
-		editor.project.getExportState();
+	const addJob = useExportQueueStore((s) => s.addJob);
+	const {
+		isExporting,
+		progress,
+		result: exportResult,
+		status,
+	} = editor.project.getExportState();
 	const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
 	const [format, setFormat] = useState<ExportFormat>(
 		DEFAULT_EXPORT_OPTIONS.format,
@@ -122,7 +138,8 @@ function ExportPopover({
 		if (!preset) return;
 		setSelectedPresetId(presetId);
 		if (isExportFormat(preset.options.format)) setFormat(preset.options.format);
-		if (isExportQuality(preset.options.quality)) setQuality(preset.options.quality);
+		if (isExportQuality(preset.options.quality))
+			setQuality(preset.options.quality);
 		setShouldIncludeAudio(preset.options.includeAudio ?? true);
 	};
 
@@ -131,7 +148,11 @@ function ExportPopover({
 	const handleExport = async () => {
 		if (!activeProject) return;
 
-		const result = await editor.project.export({
+		// SCRUM-24: enqueue the job instead of blocking on it.
+		// The queue worker (use-export-queue-worker) picks it up and drives progress.
+		addJob({
+			projectId: activeProject.metadata.id,
+			projectName: activeProject.metadata.name,
 			options: {
 				format,
 				quality,
@@ -144,21 +165,7 @@ function ExportPopover({
 			},
 		});
 
-		if (result.cancelled) {
-			editor.project.clearExportState();
-			return;
-		}
-
-		if (result.success && result.buffer) {
-			downloadBuffer({
-				buffer: result.buffer,
-				filename: `${activeProject.metadata.name}${getExportFileExtension({ format })}`,
-				mimeType: getExportMimeType({ format }),
-			});
-
-			editor.project.clearExportState();
-			onOpenChange(false);
-		}
+		onOpenChange(false);
 	};
 
 	const handleCancel = () => {
@@ -189,21 +196,23 @@ function ExportPopover({
 										Export for
 									</p>
 									<div className="flex flex-wrap gap-1.5">
-										{EXPORT_PRESETS.filter((p) => p.id !== "custom").map((preset) => (
-											<button
-												key={preset.id}
-												type="button"
-												className={cn(
-													"rounded-md px-2.5 py-1 text-[11px] border transition-colors",
-													selectedPresetId === preset.id
-														? "border-primary bg-primary/10 text-primary"
-														: "border-border hover:bg-accent text-muted-foreground",
-												)}
-												onClick={() => handlePresetSelect(preset.id)}
-											>
-												{preset.name}
-											</button>
-										))}
+										{EXPORT_PRESETS.filter((p) => p.id !== "custom").map(
+											(preset) => (
+												<button
+													key={preset.id}
+													type="button"
+													className={cn(
+														"rounded-md px-2.5 py-1 text-[11px] border transition-colors",
+														selectedPresetId === preset.id
+															? "border-primary bg-primary/10 text-primary"
+															: "border-border hover:bg-accent text-muted-foreground",
+													)}
+													onClick={() => handlePresetSelect(preset.id)}
+												>
+													{preset.name}
+												</button>
+											),
+										)}
 									</div>
 									{selectedPreset?.tip && (
 										<p className="text-[10px] text-muted-foreground mt-2 leading-relaxed">
@@ -213,7 +222,11 @@ function ExportPopover({
 								</div>
 
 								<div className="flex flex-col">
-									<Section collapsible defaultOpen={false} showTopBorder={false}>
+									<Section
+										collapsible
+										defaultOpen={false}
+										showTopBorder={false}
+									>
 										<SectionHeader>
 											<SectionTitle>Format</SectionTitle>
 										</SectionHeader>
@@ -304,15 +317,11 @@ function ExportPopover({
 										<SectionContent>
 											<div className="space-y-4">
 												<div className="space-y-1.5">
-													<Label htmlFor="export-resolution">
-														Resolution
-													</Label>
+													<Label htmlFor="export-resolution">Resolution</Label>
 													<select
 														id="export-resolution"
 														value={resolution}
-														onChange={(e) =>
-															setResolution(e.target.value)
-														}
+														onChange={(e) => setResolution(e.target.value)}
 														className="h-8 w-full rounded-md border border-border bg-background px-2 text-xs"
 													>
 														{EXPORT_RESOLUTION_VALUES.map((r) => (
@@ -334,8 +343,8 @@ function ExportPopover({
 														))}
 													</select>
 													<p className="text-[10px] text-muted-foreground">
-														Downscales from the canvas while keeping
-														aspect ratio. Upscaling is not applied.
+														Downscales from the canvas while keeping aspect
+														ratio. Upscaling is not applied.
 													</p>
 												</div>
 
@@ -410,7 +419,9 @@ function ExportPopover({
 														Include OpenCut AI watermark
 													</Label>
 													<p className="text-[10px] text-muted-foreground leading-relaxed">
-														This is open-source software. Including the watermark helps spread the word and support the project.
+														This is open-source software. Including the
+														watermark helps spread the word and support the
+														project.
 													</p>
 												</div>
 											</div>

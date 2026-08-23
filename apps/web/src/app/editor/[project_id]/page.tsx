@@ -27,6 +27,8 @@ import { useEffect, useRef } from "react";
 import type { TextElement } from "@/types/timeline";
 import { BackgroundTasksWidget } from "@/components/editor/background-tasks";
 import { CommandPalette } from "@/components/editor/command-palette";
+import { ExportQueuePanel } from "@/components/editor/export-queue-panel";
+import { ExportQueueWorkerMount } from "@/components/editor/export-queue-worker-mount";
 
 export default function Editor() {
 	const params = useParams();
@@ -45,6 +47,8 @@ export default function Editor() {
 					<MigrationDialog />
 					<BackgroundTasksWidget />
 					<CommandPalette />
+					<ExportQueuePanel />
+					<ExportQueueWorkerMount />
 				</div>
 			</EditorProvider>
 		</MobileGate>
@@ -58,15 +62,17 @@ function EditorLayout() {
 	const transcriptSegments = useTranscriptStore((s) => s.segments);
 	const isTranscribing = useTranscriptStore((s) => s.isTranscribing);
 	const editor = useEditor();
-	const hasTimelineContent = editor.timeline.getTracks().some(
-		(track) => track.elements.length > 0,
-	);
-	const hasMedia = editor.timeline.getTracks().some(
-		(t) =>
-			(t.type === "video" || t.type === "audio") &&
-			t.elements.length > 0,
-	);
-	const hasTranscript = hasMedia && (transcriptSegments.length > 0 || isTranscribing);
+	const hasTimelineContent = editor.timeline
+		.getTracks()
+		.some((track) => track.elements.length > 0);
+	const hasMedia = editor.timeline
+		.getTracks()
+		.some(
+			(t) =>
+				(t.type === "video" || t.type === "audio") && t.elements.length > 0,
+		);
+	const hasTranscript =
+		hasMedia && (transcriptSegments.length > 0 || isTranscribing);
 
 	// Restore transcript from existing caption text elements on the timeline
 	const hasRestoredTranscript = useRef(false);
@@ -80,8 +86,7 @@ function EditorLayout() {
 		// Only restore if there's actually a video/audio on the timeline
 		const hasMedia = tracks.some(
 			(t) =>
-				(t.type === "video" || t.type === "audio") &&
-				t.elements.length > 0,
+				(t.type === "video" || t.type === "audio") && t.elements.length > 0,
 		);
 		if (!hasMedia) return;
 
@@ -91,8 +96,9 @@ function EditorLayout() {
 		if (!textTrack) return;
 
 		// Sort text elements by startTime
-		const sortedElements = [...textTrack.elements]
-			.sort((a, b) => a.startTime - b.startTime);
+		const sortedElements = [...textTrack.elements].sort(
+			(a, b) => a.startTime - b.startTime,
+		);
 
 		if (sortedElements.length === 0) return;
 
@@ -103,7 +109,8 @@ function EditorLayout() {
 			const end = el.startTime + el.duration;
 			const segWords = text.trim().split(/\s+/).filter(Boolean);
 			const segDuration = end - start;
-			const wordDuration = segWords.length > 0 ? segDuration / segWords.length : segDuration;
+			const wordDuration =
+				segWords.length > 0 ? segDuration / segWords.length : segDuration;
 
 			return {
 				id: index,
@@ -134,8 +141,7 @@ function EditorLayout() {
 			const tracks = editor.timeline.getTracks();
 			const hasMedia = tracks.some(
 				(t) =>
-					(t.type === "video" || t.type === "audio") &&
-					t.elements.length > 0,
+					(t.type === "video" || t.type === "audio") && t.elements.length > 0,
 			);
 			if (!hasMedia) {
 				useTranscriptStore.getState().reset();
