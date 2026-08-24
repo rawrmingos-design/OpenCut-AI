@@ -1,0 +1,38 @@
+{
+  "timestamp": "2026-08-24T02:46:11.010Z",
+  "web_url": "http://127.0.0.1:3200",
+  "api_url": "http://127.0.0.1:8420",
+  "startup": {
+    "load_ms": 852,
+    "fcp_ms": 880,
+    "lcp_ms": 2560,
+    "long_tasks_initial": 14,
+    "target_met": true
+  },
+  "preview": {
+    "sample_ms": 2014,
+    "frames": 17,
+    "avg_fps": 8,
+    "js_heap_mb": 9.37,
+    "note": "landing page rAF proxy — editor-canvas FPS tracked separately post-QA"
+  },
+  "render_runs": [
+    {
+      "label": "cold",
+      "ms": 3941,
+      "size_mb": 1.16,
+      "duration_s": 5.015
+    },
+    {
+      "label": "warm",
+      "ms": 3046,
+      "size_mb": 1.16,
+      "duration_s": 5.015
+    }
+  ],
+  "render_avg_ms": 3494,
+  "targets": {
+    "startup_ms": 3000
+  },
+  "passed": true
+}
