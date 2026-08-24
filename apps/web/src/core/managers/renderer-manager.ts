@@ -5,6 +5,10 @@ import { CanvasRenderer } from "@/services/renderer/canvas-renderer";
 import { SceneExporter } from "@/services/renderer/scene-exporter";
 import { exportDesktopProject } from "@/services/renderer/desktop-renderer";
 import { buildScene } from "@/services/renderer/scene-builder";
+import {
+	rebaseTracksToTimeWindow,
+	resolveExportRange,
+} from "@/lib/timeline-window";
 import { createTimelineAudioBuffer } from "@/lib/media/audio";
 import { formatTimeCode, getLastFrameTime } from "@/lib/time";
 import { downloadBlob } from "@/utils/browser";
@@ -105,7 +109,7 @@ export class RendererManager {
 		const audioBitrate = options.audioBitrate ?? null;
 
 		try {
-			const tracks = this.editor.timeline.getTracks();
+			const fullTracks = this.editor.timeline.getTracks();
 			const mediaAssets = this.editor.media.getAssets();
 			const activeProject = this.editor.project.getActive();
 
@@ -113,9 +117,36 @@ export class RendererManager {
 				return { success: false, error: "No active project" };
 			}
 
-			const duration = this.editor.timeline.getTotalDuration();
-			if (duration === 0) {
+			const totalDuration = this.editor.timeline.getTotalDuration();
+			if (totalDuration === 0) {
 				return { success: false, error: "Project is empty" };
+			}
+
+			// SCRUM-71: optional range-only render. The window is applied by
+			// rebasing a cloned track list — the real timeline is untouched.
+			let tracks = fullTracks;
+			let duration = totalDuration;
+			let rangeStart: number | null = null;
+			if (
+				typeof options.start === "number" &&
+				typeof options.end === "number"
+			) {
+				const resolved = resolveExportRange({
+					start: options.start,
+					end: options.end,
+					duration: totalDuration,
+					fps: options.fps || activeProject.settings.fps,
+				});
+				if (!resolved) {
+					return { success: false, error: "Invalid export range" };
+				}
+				tracks = rebaseTracksToTimeWindow({
+					tracks: fullTracks,
+					start: resolved.start,
+					end: resolved.end,
+				});
+				duration = resolved.end - resolved.start;
+				rangeStart = resolved.start;
 			}
 
 			// If running inside Tauri desktop app, use the native renderer

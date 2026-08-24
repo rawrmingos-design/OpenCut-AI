@@ -36,6 +36,11 @@ import {
 } from "@/constants/export-constants";
 import { useExportQueueStore } from "@/stores/export-queue-store";
 
+function formatRangeLabel(seconds: number): string {
+	const total = Math.max(0, Math.round(seconds));
+	return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+}
+
 function isExportFormat(value: string): value is ExportFormat {
 	return EXPORT_FORMAT_VALUES.some((formatValue) => formatValue === value);
 }
@@ -128,6 +133,26 @@ function ExportPopover({
 	const [videoBitrate, setVideoBitrate] = useState<number | null>(null);
 	const [audioBitrate, setAudioBitrate] = useState<number | null>(null);
 
+	// SCRUM-71: export scope — full sequence or a selected time range
+	const timelineDuration = editor.timeline.getTotalDuration();
+	const selectedElements = editor.selection.getSelectedElements();
+	const selectionRange = (() => {
+		if (selectedElements.length === 0) return null;
+		let minStart = Number.POSITIVE_INFINITY;
+		let maxEnd = 0;
+		for (const { trackId, elementId } of selectedElements) {
+			const track = editor.timeline.getTrackById({ trackId });
+			const element = track?.elements.find((e) => e.id === elementId);
+			if (!element) continue;
+			minStart = Math.min(minStart, element.startTime);
+			maxEnd = Math.max(maxEnd, element.startTime + element.duration);
+		}
+		return maxEnd > minStart ? { start: minStart, end: maxEnd } : null;
+	})();
+	const [exportScope, setExportScope] = useState<"full" | "range">("full");
+	const [rangeStart, setRangeStart] = useState(0);
+	const [rangeEnd, setRangeEnd] = useState(0);
+
 	const handlePresetSelect = (presetId: string) => {
 		const preset = EXPORT_PRESETS.find((p) => p.id === presetId);
 		if (!preset) return;
@@ -143,6 +168,13 @@ function ExportPopover({
 	const handleExport = async () => {
 		if (!activeProject) return;
 
+		// SCRUM-71: attach the requested window when range mode is on
+		const useRange =
+			exportScope === "range" && timelineDuration > 0 && rangeEnd > rangeStart;
+		const rangeOptions = useRange
+			? { start: rangeStart, end: Math.min(rangeEnd, timelineDuration) }
+			: {};
+
 		// SCRUM-24: enqueue the job instead of blocking on it.
 		// The queue worker (use-export-queue-worker) picks it up and drives progress.
 		addJob({
@@ -157,6 +189,8 @@ function ExportPopover({
 				resolution: isExportResolution(resolution) ? resolution : "source",
 				videoBitrate: videoBitrate ?? undefined,
 				audioBitrate: audioBitrate ?? undefined,
+				start: "start" in rangeOptions ? rangeOptions.start : undefined,
+				end: "end" in rangeOptions ? rangeOptions.end : undefined,
 			},
 		});
 
@@ -302,6 +336,103 @@ function ExportPopover({
 													Include audio in export
 												</Label>
 											</div>
+										</SectionContent>
+									</Section>
+
+									<Section collapsible defaultOpen={false}>
+										<SectionHeader>
+											<SectionTitle>Time range</SectionTitle>
+										</SectionHeader>
+										<SectionContent>
+											<RadioGroup
+												value={exportScope}
+												onValueChange={(value) => {
+													if (value === "range") {
+														// Seed from the current selection when available
+														if (
+															selectionRange &&
+															rangeEnd - rangeStart <= 0.05
+														) {
+															setRangeStart(selectionRange.start);
+															setRangeEnd(
+																Math.min(
+																	selectionRange.end,
+																	timelineDuration,
+																),
+															);
+														} else if (rangeEnd - rangeStart <= 0.05) {
+															setRangeStart(0);
+															setRangeEnd(timelineDuration);
+														}
+													}
+													setExportScope(value === "range" ? "range" : "full");
+												}}
+											>
+												<div className="flex items-center space-x-2">
+													<RadioGroupItem value="full" id="scope-full" />
+													<Label htmlFor="scope-full">Full sequence</Label>
+												</div>
+												<div className="flex items-center space-x-2">
+													<RadioGroupItem
+														value="range"
+														id="scope-range"
+														disabled={timelineDuration <= 0}
+													/>
+													<Label htmlFor="scope-range">
+														Selected range (seconds)
+													</Label>
+												</div>
+											</RadioGroup>
+
+											{exportScope === "range" && (
+												<div className="mt-2 flex items-center gap-2">
+													<input
+														type="number"
+														min={0}
+														max={timelineDuration}
+														step={0.1}
+														value={Number.isFinite(rangeStart) ? rangeStart : 0}
+														onChange={(e) => {
+															const n = Number(e.target.value);
+															setRangeStart(
+																Math.max(
+																	0,
+																	Math.min(n, timelineDuration),
+																),
+															);
+														}}
+														className="h-8 w-full rounded-md border border-border bg-background px-2 text-xs"
+														aria-label="Range start seconds"
+													/>
+													<span className="text-[10px] text-muted-foreground">
+														to
+													</span>
+													<input
+														type="number"
+														min={0}
+														max={timelineDuration}
+														step={0.1}
+														value={
+															Number.isFinite(rangeEnd) ? rangeEnd : timelineDuration
+														}
+														onChange={(e) => {
+															const n = Number(e.target.value);
+															setRangeEnd(
+																Math.max(0, Math.min(n, timelineDuration)),
+															);
+														}}
+														className="h-8 w-full rounded-md border border-border bg-background px-2 text-xs"
+														aria-label="Range end seconds"
+													/>
+												</div>
+											)}
+											<p className="text-[10px] text-muted-foreground mt-1">
+												{exportScope === "range"
+													? `Exports ${formatRangeLabel(rangeStart)} to ${formatRangeLabel(rangeEnd)} only.`
+													: "Renders the whole timeline."}
+												{selectionRange &&
+													` Selection found: ${formatRangeLabel(selectionRange.start)}–${formatRangeLabel(selectionRange.end)}.`}
+											</p>
 										</SectionContent>
 									</Section>
 

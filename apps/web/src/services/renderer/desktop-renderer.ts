@@ -7,6 +7,10 @@ import { listen, } from "@tauri-apps/api/event";
 import { tempDir, join } from "@tauri-apps/api/path";
 import { save } from "@tauri-apps/plugin-dialog";
 import { mkdir, remove, writeFile } from "@tauri-apps/plugin-fs";
+import {
+	rebaseTracksToTimeWindow,
+	resolveExportRange,
+} from "@/lib/timeline-window";
 
 interface RenderProgress {
 	frame: number;
@@ -36,6 +40,32 @@ export async function exportDesktopProject({
 
 	const exportFps = options.fps || activeProject.settings.fps;
 	const canvasSize = activeProject.settings.canvasSize;
+
+	// SCRUM-71: optional range-only render — rebase cloned tracks into the
+	// window so downstream clip extraction sees a t=0-based mini-timeline.
+	let rangeStart: number | null = null;
+	let rangeEnd: number | null = null;
+	if (typeof options.start === "number" && typeof options.end === "number") {
+		const resolved = resolveExportRange({
+			start: options.start,
+			end: options.end,
+			duration,
+			fps: exportFps,
+		});
+		if (!resolved) {
+			return { success: false, error: "Invalid export range" };
+		}
+		rangeStart = resolved.start;
+		rangeEnd = resolved.end;
+	}
+	const workingTracks =
+		rangeStart !== null && rangeEnd !== null
+			? rebaseTracksToTimeWindow({
+					tracks,
+					start: rangeStart,
+					end: rangeEnd,
+				})
+			: tracks;
 	const targetHeight =
 		options.resolution && options.resolution !== "source"
 			? Number.parseInt(options.resolution.replace("p", ""), 10)
@@ -55,7 +85,8 @@ export async function exportDesktopProject({
 	// Multi-track composition is complex in FFmpeg and usually requires overlay filters.
 	// For basic trimming & concat, we stick to the main track.
 	const mainTrack =
-		tracks.find((t) => t.type === "video" && t.isMain) || tracks[0];
+		workingTracks.find((t) => t.type === "video" && t.isMain) ||
+		workingTracks[0];
 	if (!mainTrack) return { success: false, error: "No tracks found" };
 
 	for (const element of (mainTrack as any).elements) {

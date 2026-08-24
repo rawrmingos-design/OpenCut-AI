@@ -33,6 +33,9 @@ export interface ExportOptions {
 	videoBitrate?: number;
 	/** Audio bitrate override in bits per second. */
 	audioBitrate?: number;
+	/** SCRUM-71: render only `[start, end]` seconds of the timeline. */
+	start?: number;
+	end?: number;
 }
 
 export interface ExportResult {

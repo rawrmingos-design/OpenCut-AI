@@ -75,6 +75,22 @@ class RenderRequest(BaseModel):
     end_time: float | None = Field(default=None, description="End time in seconds")
 
 
+def _validate_trim_window(request: "RenderRequest") -> None:
+    """SCRUM-71: 0 <= start < end when a window is provided (both or neither)."""
+    if (request.start_time is None) != (request.end_time is None):
+        raise HTTPException(
+            status_code=400,
+            detail="start_time and end_time must be provided together",
+        )
+    if request.start_time is None or request.end_time is None:
+        return
+    if request.start_time < 0 or request.end_time <= request.start_time:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid trim window: require 0 <= start_time < end_time",
+        )
+
+
 class RenderResponse(BaseModel):
     output_path: str
     duration: float
@@ -90,9 +106,29 @@ async def render_video(request: RenderRequest) -> RenderResponse:
     # SCRUM-50: validate BEFORE touching the filesystem or building the command
     input_path = _validate_input_path(request.input_path)
     _validate_render_options(request)
+    _validate_trim_window(request)
 
     if not os.path.exists(input_path):
         raise HTTPException(status_code=404, detail="Input file not found.")
+
+    source_duration: float | None = None
+    if request.start_time is not None and request.end_time is not None:
+        probe_source = await asyncio.create_subprocess_exec(
+            "ffprobe", "-v", "error", "-show_entries", "format=duration",
+            "-of", "default=noprint_wrappers=1:nokey=1", input_path,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        probe_stdout, _ = await probe_source.communicate()
+        try:
+            source_duration = float(probe_stdout.decode().strip())
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="Unable to determine input duration")
+        if request.end_time > source_duration + 0.05:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Trim end exceeds input duration ({source_duration:.3f}s)",
+            )
 
     output_filename = f"export_{uuid.uuid4().hex[:8]}.{request.output_format}"
     output_path = os.path.join(settings.GENERATED_DIR, output_filename)
