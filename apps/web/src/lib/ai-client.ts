@@ -1388,7 +1388,14 @@ class AIClient {
 
 	async findClips(
 		segments: { id: number; text: string; start: number; end: number; words: { word: string; start: number; end: number; confidence: number }[] }[],
-		options?: { minDuration?: number; maxDuration?: number; maxClips?: number },
+		options?: {
+			minDuration?: number;
+			maxDuration?: number;
+			maxClips?: number;
+			/** SCRUM-75: 1s RMS curve (0–1) decoded client-side via WebAudio. */
+			energyCurve?: number[];
+			useComposite?: boolean;
+		},
 	): Promise<FindClipsResult> {
 		return this.requestWithKeepalive<FindClipsResult>("/api/analyze/find-clips", {
 			method: "POST",
@@ -1397,6 +1404,10 @@ class AIClient {
 				min_duration: options?.minDuration ?? 15,
 				max_duration: options?.maxDuration ?? 90,
 				max_clips: options?.maxClips ?? 10,
+				...(options?.energyCurve?.length
+					? { energy_curve: options.energyCurve.map((v) => Math.max(0, Math.min(1, v))) }
+					: {}),
+				...(options?.useComposite === false ? { use_composite: false } : {}),
 			}),
 		});
 	}

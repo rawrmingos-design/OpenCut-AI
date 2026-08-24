@@ -222,17 +222,39 @@ export interface SubtitleStyle {
 
 // Podcast clip types
 export interface ClipCandidate {
+	/** SCRUM-75: deterministic id (index + time bounds). */
+	id?: string;
 	title: string;
 	start: number;
 	end: number;
 	score: number;
 	reason: string;
 	tags: string[];
+	/** SCRUM-75: per-signal breakdown explaining the ranking. */
+	signals?: ClipSignals | null;
+}
+
+export interface ClipSignals {
+	llm_score: number;
+	audio_energy?: number | null;
+	speech_density?: number | null;
+	speech_wps?: number | null;
+	speaker_activity?: number | null;
+	composite: number;
+	weights_applied?: Record<string, number>;
+	missing_signals?: string[];
 }
 
 export interface FindClipsResult {
 	clips: ClipCandidate[];
 	total_duration: number;
+	/** SCRUM-75: LLM-only vs composite top-5 overlap. */
+	ranking_comparison?: {
+		llm_only_top5: string[];
+		composite_top5: string[];
+		top5_overlap_count: number;
+		top5_overlap_ids: string[];
+	} | null;
 }
 
 export interface KeywordEntry {

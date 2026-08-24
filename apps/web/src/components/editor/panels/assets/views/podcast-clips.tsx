@@ -244,7 +244,30 @@ export function PodcastClipsView() {
 		});
 
 		try {
-			const result = await aiClient.findClips(segments);
+			// SCRUM-75: decode audio energy client-side (WebAudio) so the
+			// backend can blend real RMS signal into the ranking. Best-effort:
+			// decode failure just means the energy signal is reported missing.
+			let energyCurve: number[] | undefined;
+			try {
+				const sourceElement = editor.timeline
+					.getTracks()
+					.flatMap((track) => track.elements as TimelineElement[])
+					.find((element) => hasMediaId(element));
+				const mediaId = sourceElement && hasMediaId(sourceElement)
+					? sourceElement.mediaId
+					: null;
+				const asset = mediaId
+					? editor.media.getAssets().find((a) => a.id === mediaId)
+					: null;
+				if (asset?.file) {
+					const { extractEnergyCurve } = await import("@/lib/audio-energy");
+					energyCurve = await extractEnergyCurve(asset.file);
+				}
+			} catch {
+				energyCurve = undefined;
+			}
+
+			const result = await aiClient.findClips(segments, { energyCurve });
 			setClips(result.clips);
 
 			// Resolve one source media file for lazy gallery thumbnails.

@@ -16,6 +16,15 @@ from pydantic import BaseModel
 
 from app.config import settings
 from app.services.audio_service import extract_audio
+from app.services.clip_signals import (
+    audio_energy_score,
+    blend_clip_score,
+    normalize_energy_curve,
+    slice_curve,
+    speaker_activity_score,
+    speech_density_score,
+    speech_density_wps,
+)
 from app.services.model_backend import llm_backend
 from app.services.stream_utils import streamed_llm_response
 
@@ -48,20 +57,45 @@ class FindClipsRequest(BaseModel):
     min_duration: float = 15.0
     max_duration: float = 90.0
     max_clips: int = 10
+    # SCRUM-75: blend LLM score with non-LLM signals (audio energy,
+    # speech density, speaker activity). False = LLM-only ranking.
+    use_composite: bool = True
+    # Optional 1s-resolution RMS energy curve (0–1) decoded client-side
+    # via WebAudio. This endpoint is transcript-only server-side, so the
+    # audio-energy signal depends on this client-derived evidence;
+    # without it the signal is reported as missing, never faked.
+    energy_curve: list[float] | None = None
+
+
+class ClipSignalsPayload(BaseModel):
+    llm_score: int
+    audio_energy: float | None = None
+    speech_density: float | None = None
+    speech_wps: float | None = None
+    speaker_activity: float | None = None
+    composite: float
+    weights_applied: dict[str, float] = {}
+    missing_signals: list[str] = []
 
 
 class ClipCandidate(BaseModel):
+    # Deterministic id: candidate index + time bounds (titles can clash).
+    id: str
     title: str
     start: float
     end: float
-    score: int  # 0-100
+    score: int  # 0-100 (blended composite when use_composite)
     reason: str
     tags: list[str] = []
+    # SCRUM-75: per-signal breakdown explaining the ranking.
+    signals: ClipSignalsPayload | None = None
 
 
 class FindClipsResponse(BaseModel):
     clips: list[ClipCandidate]
     total_duration: float
+    # SCRUM-75: LLM-only vs composite top-5 overlap (comparison evidence).
+    ranking_comparison: dict | None = None
 
 
 class KeywordRequest(BaseModel):
@@ -158,11 +192,73 @@ Sort by score descending. Only include clips scoring 50 or above."""
                 "tags": [str(t) for t in clip.get("tags", [])],
             })
 
-        validated_clips.sort(key=lambda c: c["score"], reverse=True)
+        # ── SCRUM-75: composite ranking from non-LLM signals ──
+        ranking_comparison: dict | None = None
+        for idx, clip in enumerate(validated_clips):
+            clip["id"] = f"clip-{idx}-{int(clip['start'] * 1000)}-{int(clip['end'] * 1000)}"
+
+        if validated_clips and request.use_composite:
+            # Energy source: client-provided RMS curve (WebAudio decode,
+            # 1s resolution). This endpoint is transcript-only server-side.
+            energy_curve = normalize_energy_curve(request.energy_curve or [])
+
+            weights = {
+                "llm": settings.CLIP_SCORE_LLM_WEIGHT,
+                "audio_energy": settings.CLIP_SCORE_AUDIO_ENERGY_WEIGHT,
+                "speech_density": settings.CLIP_SCORE_SPEECH_DENSITY_WEIGHT,
+                "speaker_activity": settings.CLIP_SCORE_SPEAKER_ACTIVITY_WEIGHT,
+            }
+
+            segments_data = [seg.model_dump() for seg in request.segments]
+            llm_only_order = [
+                c["id"] for c in sorted(
+                    validated_clips, key=lambda c: c["score"], reverse=True
+                )[:5]
+            ]
+
+            for clip in validated_clips:
+                curve_slice = slice_curve(energy_curve, clip["start"], clip["end"])
+                audio_energy = audio_energy_score(curve_slice) if curve_slice else None
+                density = speech_density_score(segments_data, clip["start"], clip["end"])
+                wps = speech_density_wps(segments_data, clip["start"], clip["end"])
+                speaker = speaker_activity_score(segments_data, clip["start"], clip["end"])
+
+                blend = blend_clip_score(clip["score"], {
+                    "audio_energy": audio_energy,
+                    "speech_density": density,
+                    "speaker_activity": speaker,
+                }, weights)
+
+                clip["score"] = int(round(blend["composite"]))
+                # Plain dict — the streaming wrapper json.dumps the result,
+                # it cannot serialize nested pydantic models.
+                clip["signals"] = {
+                    "llm_score": int(blend["components"].get("llm", 0)),
+                    "audio_energy": blend["components"].get("audio_energy"),
+                    "speech_density": blend["components"].get("speech_density"),
+                    "speech_wps": wps,
+                    "speaker_activity": blend["components"].get("speaker_activity"),
+                    "composite": blend["composite"],
+                    "weights_applied": {k: float(v) for k, v in blend["weights_applied"].items()},
+                    "missing_signals": blend["missing_signals"],
+                }
+
+            validated_clips.sort(key=lambda c: c["score"], reverse=True)
+            composite_order = [c["id"] for c in validated_clips[:5]]
+            overlap = sorted(set(llm_only_order) & set(composite_order))
+            ranking_comparison = {
+                "llm_only_top5": llm_only_order,
+                "composite_top5": composite_order,
+                "top5_overlap_count": len(overlap),
+                "top5_overlap_ids": overlap,
+            }
+        elif validated_clips:
+            validated_clips.sort(key=lambda c: c["score"], reverse=True)
 
         return {
             "clips": validated_clips[:request.max_clips],
             "total_duration": round(total_duration, 2),
+            "ranking_comparison": ranking_comparison,
         }
 
     return streamed_llm_response(_work, error_detail="Clip finding failed.")

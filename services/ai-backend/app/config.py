@@ -106,6 +106,13 @@ class Settings(BaseSettings):
     ENGAGEMENT_AUDIO_SYNC_WEIGHT: float = 0.10
     ENGAGEMENT_FACE_WEIGHT: float = 0.05
 
+    # SCRUM-75: composite clip-ranking blend (LLM score + non-LLM signals).
+    # Normalized at use time; redistribute missing-signal weight proportionally.
+    CLIP_SCORE_LLM_WEIGHT: float = 0.55
+    CLIP_SCORE_AUDIO_ENERGY_WEIGHT: float = 0.20
+    CLIP_SCORE_SPEECH_DENSITY_WEIGHT: float = 0.15
+    CLIP_SCORE_SPEAKER_ACTIVITY_WEIGHT: float = 0.10
+
     # Limits
     MAX_UPLOAD_SIZE: int = 500 * 1024 * 1024  # 500 MB
 
