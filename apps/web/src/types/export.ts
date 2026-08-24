@@ -36,6 +36,8 @@ export interface ExportOptions {
 	/** SCRUM-71: render only `[start, end]` seconds of the timeline. */
 	start?: number;
 	end?: number;
+	/** SCRUM-74: render-time aspect override ("16:9" | "9:16") applied WITHOUT mutating project settings. */
+	aspectOverride?: "16:9" | "9:16";
 }
 
 export interface ExportResult {
