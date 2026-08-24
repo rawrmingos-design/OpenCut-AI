@@ -28,6 +28,7 @@ import {
 import { buildQuestionCardElement, QUESTION_CARD_TEMPLATES } from "@/lib/templates/question-card";
 import type { ClipCandidate, QuestionCard, } from "@/types/ai";
 import { hasMediaId } from "@/lib/timeline";
+import { trimTimelineToRange } from "@/lib/timeline-edits";
 import type { TimelineElement } from "@/types/timeline";
 
 export function PodcastClipsView() {
@@ -42,6 +43,9 @@ export function PodcastClipsView() {
 
 	// Subtitle style
 	const [subtitlePreset, setSubtitlePreset] = useState<PopoverSubtitlePreset>("hormozi");
+
+	// Apply behavior
+	const [switchToVertical, setSwitchToVertical] = useState(true);
 
 	// Feature toggles
 	const [enableQuestionCards, setEnableQuestionCards] = useState(true);
@@ -355,14 +359,39 @@ export function PodcastClipsView() {
 				// Distribute across multiple tracks so overlapping words are all visible
 				const trackBuckets = distributeElementsToTracks(subtitleElements);
 
-				for (let t = 0; t < trackBuckets.length; t++) {
+				bgTasks.updateTask(taskId, { progress: "Trimming timeline to clip range..." });
+
+				// Real trim: cut the timeline down to [clip.start, clip.end] as one
+				// undoable transaction. Everything outside is excised; survivors are
+				// compacted so the clip starts at t=0.
+				const supportsTransaction =
+					typeof editor.command.beginTransaction === "function";
+				if (supportsTransaction) editor.command.beginTransaction();
+				try {
+					trimTimelineToRange(editor, { start: clip.start, end: clip.end });
+				} finally {
+					if (supportsTransaction) editor.command.commitTransaction();
+				}
+
+				// Subtitles/cards were authored in source-video time; shift them to
+				// the trimmed timeline (t=0 base). Text tracks were NOT touched by
+				// the trim (only media/audio/video), so a pure rebase is safe.
+				const trimOffset = clip.start;
+				const rebasedBuckets = trackBuckets.map((bucket) =>
+					bucket.map((el) => ({
+						...el,
+						startTime: Math.max(0, el.startTime - trimOffset),
+					})),
+				);
+
+				for (let t = 0; t < rebasedBuckets.length; t++) {
 					const subTrackId = editor.timeline.addTrack({ type: "text", index: 0 });
-					const label = trackBuckets.length === 1
+					const label = rebasedBuckets.length === 1
 						? "Popover Subs"
 						: `Popover Subs ${t + 1}`;
 					editor.timeline.renameTrack({ trackId: subTrackId, name: label });
 
-					for (const el of trackBuckets[t]) {
+					for (const el of rebasedBuckets[t]) {
 						editor.timeline.insertElement({
 							placement: { mode: "explicit", trackId: subTrackId },
 							element: el,
@@ -370,7 +399,8 @@ export function PodcastClipsView() {
 					}
 				}
 
-				// Add question card track if cards were generated
+				// Add question card track if cards were generated (timestamps
+				// rebased to the trimmed timeline as well)
 				if (cards.length > 0) {
 					const cardTrackId = editor.timeline.addTrack({ type: "text", index: 0 });
 					editor.timeline.renameTrack({ trackId: cardTrackId, name: "Topic Cards" });
@@ -378,7 +408,7 @@ export function PodcastClipsView() {
 					for (const card of cards) {
 						const cardElement = buildQuestionCardElement({
 							question: card.question,
-							startTime: card.timestamp,
+							startTime: Math.max(0, card.timestamp - trimOffset),
 							theme: cardTemplate,
 							emoji: card.emoji,
 							useTransparentBackground: cardTransparentBg,
@@ -396,6 +426,26 @@ export function PodcastClipsView() {
 					progress: summary,
 					completedAt: Date.now(),
 				});
+
+				// Optional: flip the canvas to vertical for the new short clip
+				if (switchToVertical) {
+					const activeProject = editor.project.getActive();
+					const size = activeProject.settings.canvasSize;
+					if (size.width > size.height) {
+						const height = Math.min(size.width, 1920);
+						editor.project.updateSettings({
+							settings: {
+								canvasSize: {
+									width: Math.round((height * 9) / 16),
+									height,
+								},
+							},
+						});
+					}
+				}
+
+				// Park the playhead at the start of the trimmed clip
+				editor.playback.seek({ time: 0 });
 			} catch (err) {
 				const message = err instanceof Error ? err.message : "Failed to apply clip";
 				bgTasks.updateTask(taskId, {
@@ -407,7 +457,7 @@ export function PodcastClipsView() {
 				setIsApplying(false);
 			}
 		},
-		[segments, editor, subtitlePreset, enableKeywordHighlight, enableQuestionCards, cardTemplate, cardTransparentBg, bgTasks],
+		[segments, editor, subtitlePreset, switchToVertical, enableKeywordHighlight, enableQuestionCards, cardTemplate, cardTransparentBg, bgTasks],
 	);
 
 	// ── Add Popover Subtitles (full transcript — background task) ──
@@ -728,6 +778,19 @@ export function PodcastClipsView() {
 								<Switch
 									checked={enableQuestionCards}
 									onCheckedChange={setEnableQuestionCards}
+								/>
+							</div>
+
+							<div className="flex items-center justify-between">
+								<div className="flex flex-col">
+									<span className="text-xs">Switch to 9:16 on Apply</span>
+									<span className="text-[10px] text-muted-foreground">
+										Vertical canvas for the new short clip
+									</span>
+								</div>
+								<Switch
+									checked={switchToVertical}
+									onCheckedChange={setSwitchToVertical}
 								/>
 							</div>
 						</div>

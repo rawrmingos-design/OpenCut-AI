@@ -179,3 +179,106 @@ export function shiftTracksByOffset(
 		editor.timeline.updateElements({ updates });
 	}
 }
+
+/**
+ * Trim the whole timeline down to a single `[start, end]` range — the
+ * inverse of `applyTimeRangeCuts`. Everything outside the window is
+ * excised (splitting any element that straddles a boundary first), then
+ * surviving content is compacted so the clip starts at t=0.
+ *
+ * All mutations go through command-pushing manager methods, so wrapping
+ * this in `editor.command.beginTransaction()` / `commitTransaction()`
+ * makes the whole trim undo as one step.
+ */
+export function trimTimelineToRange(
+	editor: TimelineEditor,
+	range: TimeRange,
+): void {
+	const start = Math.max(0, range.start);
+	if (range.end <= start) return;
+
+	// Split elements straddling the IN point so the head becomes standalone.
+	if (start > 0.01) {
+		const atStart = getElementsAtTime({
+			tracks: editor.timeline.getTracks(),
+			time: start,
+		});
+		if (atStart.length > 0) {
+			editor.timeline.splitElements({
+				elements: atStart,
+				splitTime: start,
+			});
+		}
+	}
+
+	// Split elements straddling the OUT point so the tail becomes standalone.
+	const atEnd = getElementsAtTime({
+		tracks: editor.timeline.getTracks(),
+		time: range.end,
+	});
+	if (atEnd.length > 0) {
+		editor.timeline.splitElements({
+			elements: atEnd,
+			splitTime: range.end,
+		});
+	}
+
+	// Delete everything fully outside [start, end]. Tolerance mirrors
+	// applyTimeRangeCuts so boundary-split halves land consistently.
+	const tracks = editor.timeline.getTracks();
+	const toDelete: { trackId: string; elementId: string }[] = [];
+	for (const track of tracks) {
+		for (const element of track.elements) {
+			const elementEnd = element.startTime + element.duration;
+			const fullyBefore = elementEnd <= start + 0.01;
+			const fullyAfter = element.startTime >= range.end - 0.01;
+			if (fullyBefore || fullyAfter) {
+				toDelete.push({ trackId: track.id, elementId: element.id });
+			}
+		}
+	}
+	if (toDelete.length > 0) {
+		editor.timeline.deleteElements({
+			elements: toDelete,
+			rippleEnabled: true,
+		});
+	}
+
+	// Finalize layout: media tracks (video/audio) are butt-compacted so the
+	// clip starts at t=0; every other track kind (text, stickers…) keeps its
+	// internal gaps and is simply rebased into range-relative time so the
+	// rhythm between surviving overlays/subtitles is preserved.
+	const finalizedTracks = editor.timeline.getTracks();
+	const updates: Array<{
+		trackId: string;
+		elementId: string;
+		updates: Partial<TimelineElement>;
+	}> = [];
+
+	for (const track of finalizedTracks) {
+		const isMedia = track.type === "video" || track.type === "audio";
+		const sorted = [...track.elements].sort(
+			(a, b) => a.startTime - b.startTime,
+		);
+		let cursor = 0;
+		for (const element of sorted) {
+			const target = isMedia
+				? cursor
+				: Math.max(0, element.startTime - start);
+			if (Math.abs(element.startTime - target) > 0.01) {
+				updates.push({
+					trackId: track.id,
+					elementId: element.id,
+					updates: { startTime: target },
+				});
+			}
+			if (isMedia) {
+				cursor += element.duration;
+			}
+		}
+	}
+
+	if (updates.length > 0) {
+		editor.timeline.updateElements({ updates });
+	}
+}
