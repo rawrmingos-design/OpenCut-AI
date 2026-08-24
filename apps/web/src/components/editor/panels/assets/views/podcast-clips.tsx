@@ -37,6 +37,7 @@ import {
 	queueBatchExportJobs,
 } from "@/lib/batch-export";
 import { ClipsGallery } from "./clips-gallery";
+import { buildTranscriptSlice } from "@/lib/clip-trim-adjust";
 import type { TimelineElement } from "@/types/timeline";
 
 export function PodcastClipsView() {
@@ -51,6 +52,11 @@ export function PodcastClipsView() {
 		file: Blob;
 	} | null>(null);
 	const [batchMinScore, setBatchMinScore] = useState(0);
+
+	// SCRUM-76: media duration clamp for mini trim scrubbers
+	const [mediaTotalDuration, setMediaTotalDuration] = useState<
+		number | null
+	>(null);
 
 	// Clip finder state
 	const [clips, setClips] = useState<ClipCandidate[]>([]);
@@ -258,6 +264,18 @@ export function PodcastClipsView() {
 					? { id: sourceMediaId, file: sourceAsset.file }
 					: null,
 			);
+			// SCRUM-76: clamp scrubber windows to the real media duration.
+			const assetDuration = (sourceAsset as { duration?: number } | undefined)
+				?.duration;
+			if (typeof assetDuration === "number" && assetDuration > 0) {
+				setMediaTotalDuration(assetDuration);
+			} else {
+				const maxSegEnd = segments.reduce(
+					(max, seg) => Math.max(max, seg.end),
+					0,
+				);
+				setMediaTotalDuration(maxSegEnd > 0 ? maxSegEnd : null);
+			}
 
 			if (result.clips.length === 0) {
 				bgTasks.updateTask(taskId, {
@@ -354,6 +372,39 @@ export function PodcastClipsView() {
 			description: "9:16 renders — progress in the render queue",
 		});
 	}, [editor, clips, addExportJob, batchMinScore]);
+
+	// ── Mini trim adjustments (SCRUM-76) ──
+	const handleAdjustClip = useCallback((index: number, next: ClipCandidate) => {
+		setClips((prev) => {
+			if (!prev[index]) return prev;
+			const copy = prev.slice();
+			copy[index] = next;
+			return copy;
+		});
+	}, []);
+
+	const handleRescoreClip = useCallback(
+		async (clip: ClipCandidate): Promise<{ score: number } | null> => {
+			try {
+				const transcriptText =
+					buildTranscriptSlice(segments, clip.start, clip.end) ||
+					clip.reason;
+				const result = await aiClient.engagementScore({
+					transcript_text: transcriptText,
+					start: clip.start,
+					end: clip.end,
+					title: clip.title,
+				});
+				const composite = Number(result?.composite);
+				if (!Number.isFinite(composite)) return null;
+				return { score: Math.max(0, Math.min(100, Math.round(composite))) };
+			} catch {
+				// Re-scoring is best-effort; keep the previous score on failure.
+				return null;
+			}
+		},
+		[segments],
+	);
 
 	// ── Apply Clip (generate subtitle elements — background task) ──
 	const handleApplyClip = useCallback(
@@ -750,6 +801,9 @@ export function PodcastClipsView() {
 									onPreview={handlePreviewClip}
 									onApply={(clip) => void handleApplyClip(clip)}
 									onExport={handleExportClip}
+									mediaTotalDuration={mediaTotalDuration}
+									onAdjustClip={handleAdjustClip}
+									rescoreClip={handleRescoreClip}
 									header={
 										<div className="flex items-center justify-between gap-2 rounded-md border bg-muted/30 px-2 py-1.5">
 											<div className="flex items-center gap-1.5">
