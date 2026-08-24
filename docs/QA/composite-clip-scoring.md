@@ -89,15 +89,22 @@ pipelines keep the validated media-ID/job-reference contract.
 
 ## Release evidence
 
-Filled after production build, live smoke, and CI:
-
-- Commit:
-- Backend tests:
-- Web tests/TSC:
-- Docker service:
-- Live API smoke:
-- CI run / SHA:
-- Public shell / `sw.js`:
+- Commit: `b0085221757b20971dcaea2fc0dd1e786b3cef70` (`feature/ai-clipper-baseline`)
+- Backend tests: 28 passed (`PYTHONPATH=. pytest -q tests/test_clip_composite_scoring.py`)
+- Web tests/TSC: `bun test` 136 tests / 0 fail; `tsc --noEmit` exit 0
+- Docker service: `opencut-ai-web` + `opencut-ai-ai-backend` rebuilt from this
+  commit and healthy (images created 2026-08-25 01:12–01:14 WIB)
+- Live API smoke (real Ollama stack, HTTP 200):
+  - Empty segments → `{"clips":[],"total_duration":0}`
+  - 32s synthetic transcript, composite on → one candidate with blended
+    composite: `score=83`, breakdown `llm_score=100`, `speech_density=37.5`
+    (`speech_wps=1.5`), `speaker_activity=55.0`,
+    `missing_signals=["audio_energy"]`; blend check
+    `(100·0.55 + 37.5·0.15 + 55·0.10)/0.80 = 82.66 → 83` matches exactly;
+    `ranking_comparison.top5_overlap_count=1` computed from the live response
+- CI run / SHA: `32760778799` / `b0085221` — success
+- Public shell / `sw.js`: local `/` 200, `/sw.js` 200,
+  `https://opencut.imhaf.online/sw.js` 200
 
 ## Follow-up
 
