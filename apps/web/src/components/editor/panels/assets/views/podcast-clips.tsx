@@ -29,12 +29,22 @@ import { buildQuestionCardElement, QUESTION_CARD_TEMPLATES } from "@/lib/templat
 import type { ClipCandidate, QuestionCard, } from "@/types/ai";
 import { hasMediaId } from "@/lib/timeline";
 import { trimTimelineToRange } from "@/lib/timeline-edits";
+import { useExportQueueStore } from "@/stores/export-queue-store";
+import { DEFAULT_EXPORT_OPTIONS } from "@/constants/export-constants";
+import { ClipsGallery } from "./clips-gallery";
 import type { TimelineElement } from "@/types/timeline";
 
 export function PodcastClipsView() {
 	const segments = useTranscriptStore((s) => s.segments);
 	const editor = useEditor();
 	const bgTasks = useBackgroundTasksStore();
+	const addExportJob = useExportQueueStore((s) => s.addJob);
+
+	// SCRUM-73: media backing the gallery thumbnails
+	const [galleryAsset, setGalleryAsset] = useState<{
+		id: string;
+		file: Blob;
+	} | null>(null);
 
 	// Clip finder state
 	const [clips, setClips] = useState<ClipCandidate[]>([]);
@@ -225,6 +235,24 @@ export function PodcastClipsView() {
 			const result = await aiClient.findClips(segments);
 			setClips(result.clips);
 
+			// Resolve one source media file for lazy gallery thumbnails.
+			const sourceElement = editor.timeline
+				.getTracks()
+				.flatMap((track) => track.elements as TimelineElement[])
+				.find((element) => hasMediaId(element));
+			const sourceMediaId =
+				sourceElement && hasMediaId(sourceElement)
+					? sourceElement.mediaId
+					: null;
+			const sourceAsset = sourceMediaId
+				? editor.media.getAssets().find((asset) => asset.id === sourceMediaId)
+				: null;
+			setGalleryAsset(
+				sourceAsset?.file && sourceMediaId
+					? { id: sourceMediaId, file: sourceAsset.file }
+					: null,
+			);
+
 			if (result.clips.length === 0) {
 				bgTasks.updateTask(taskId, {
 					status: "completed",
@@ -264,6 +292,33 @@ export function PodcastClipsView() {
 			});
 		},
 		[editor],
+	);
+
+	// ── Export Clip (ranged export via SCRUM-71 queue) ──
+	const handleExportClip = useCallback(
+		(clip: ClipCandidate) => {
+			const activeProject = editor.project.getActive();
+			if (!activeProject) {
+				toast.error("No active project");
+				return;
+			}
+			addExportJob({
+				projectId: activeProject.metadata.id,
+				projectName: activeProject.metadata.name,
+				options: {
+					format: DEFAULT_EXPORT_OPTIONS.format,
+					quality: DEFAULT_EXPORT_OPTIONS.quality,
+					fps: activeProject.settings.fps,
+					includeAudio: DEFAULT_EXPORT_OPTIONS.includeAudio ?? true,
+					start: clip.start,
+					end: clip.end,
+				},
+			});
+			toast.info(`Queued export: ${clip.title}`, {
+				description: `${clip.start.toFixed(1)}s – ${clip.end.toFixed(1)}s`,
+			});
+		},
+		[editor, addExportJob],
 	);
 
 	// ── Apply Clip (generate subtitle elements — background task) ──
@@ -641,78 +696,27 @@ export function PodcastClipsView() {
 							</Button>
 						</div>
 
-						{/* ── Clip Candidates ── */}
+						{/* ── Clip Results Gallery (SCRUM-73) ── */}
 						{clips.length > 0 && (
 							<div className="flex flex-col gap-2">
 								<div className="flex items-center justify-between">
-									<Label className="text-xs font-medium">Clip candidates</Label>
+									<Label className="text-xs font-medium">Clip results</Label>
 									<span className="text-[10px] text-muted-foreground tabular-nums">
 										{clips.length} found
+										{clips.length > 12
+											? ` · showing top ${12}`
+											: ""}
 									</span>
 								</div>
-								<div className="flex flex-col gap-1.5 max-h-60 overflow-y-auto">
-									{clips.map((clip, idx) => (
-										<div
-											key={`${clip.start}-${clip.end}`}
-											className="rounded-md border p-2.5 flex flex-col gap-1.5"
-										>
-											<div className="flex items-start justify-between gap-2">
-												<div className="flex-1 min-w-0">
-													<p className="text-xs font-medium truncate">
-														{idx + 1}. {clip.title}
-													</p>
-													<p className="text-[10px] text-muted-foreground tabular-nums">
-														{formatTime(clip.start)} - {formatTime(clip.end)}
-													</p>
-												</div>
-												<Badge
-													variant={clip.score >= 80 ? "default" : "secondary"}
-													className="text-[9px] px-1.5 py-0 h-4 shrink-0"
-												>
-													{clip.score}/100
-												</Badge>
-											</div>
-											{clip.reason && (
-												<p className="text-[10px] text-muted-foreground leading-relaxed line-clamp-2">
-													{clip.reason}
-												</p>
-											)}
-											{clip.tags.length > 0 && (
-												<div className="flex flex-wrap gap-1">
-													{clip.tags.slice(0, 3).map((tag) => (
-														<Badge
-															key={tag}
-															variant="outline"
-															className="text-[8px] px-1 py-0 h-3.5"
-														>
-															{tag}
-														</Badge>
-													))}
-												</div>
-											)}
-											<div className="flex gap-1.5 mt-0.5">
-												<Button
-													variant="outline"
-													size="sm"
-													className="h-6 text-[10px] flex-1"
-													onClick={() => handlePreviewClip(clip)}
-													disabled={isProcessing}
-												>
-													Preview
-												</Button>
-												<Button
-													variant="default"
-													size="sm"
-													className="h-6 text-[10px] flex-1"
-													onClick={() => handleApplyClip(clip)}
-													disabled={isProcessing}
-												>
-													Apply
-												</Button>
-											</div>
-										</div>
-									))}
-								</div>
+								<ClipsGallery
+									clips={clips}
+									mediaAssetId={galleryAsset?.id ?? null}
+									mediaFile={galleryAsset?.file ?? null}
+									isProcessing={isProcessing}
+									onPreview={handlePreviewClip}
+									onApply={(clip) => void handleApplyClip(clip)}
+									onExport={handleExportClip}
+								/>
 							</div>
 						)}
 
