@@ -37,6 +37,8 @@ export interface ClipsGalleryProps {
 	onPreview: (clip: ClipCandidate) => void;
 	onApply: (clip: ClipCandidate) => void;
 	onExport: (clip: ClipCandidate) => void;
+	/** SCRUM-74: batch header (Export All + min-score filter) rendered above the grid. */
+	header?: React.ReactNode;
 }
 
 /** undefined = loading, null = extraction failed (placeholder), string = data URL */
@@ -157,6 +159,7 @@ export function ClipsGallery({
 	onPreview,
 	onApply,
 	onExport,
+	header,
 }: ClipsGalleryProps) {
 	const visible = useMemo(() => clips.slice(0, GALLERY_MAX_CLIPS), [clips]);
 	const [thumbs, setThumbs] = useState<Record<string, ThumbState>>({});
@@ -193,19 +196,22 @@ export function ClipsGallery({
 	}, [visible, mediaAssetId, mediaFile]);
 
 	return (
-		<div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
-			{visible.map((clip, idx) => (
-				<ClipCard
-					key={clipKey(clip)}
-					clip={clip}
-					index={idx}
-					thumbUrl={thumbs[clipKey(clip)] ?? undefined}
-					isProcessing={isProcessing}
-					onPreview={onPreview}
-					onApply={onApply}
-					onExport={onExport}
-				/>
-			))}
+		<div className="flex flex-col gap-2">
+			{header}
+			<div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+				{visible.map((clip, idx) => (
+					<ClipCard
+						key={clipKey(clip)}
+						clip={clip}
+						index={idx}
+						thumbUrl={thumbs[clipKey(clip)] ?? undefined}
+						isProcessing={isProcessing}
+						onPreview={onPreview}
+						onApply={onApply}
+						onExport={onExport}
+					/>
+				))}
+			</div>
 		</div>
 	);
 }

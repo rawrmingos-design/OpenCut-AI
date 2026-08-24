@@ -24,6 +24,8 @@ interface ExportQueueState {
 	updateJob: (id: string, updates: Partial<ExportJob>) => void;
 	removeJob: (id: string) => void;
 	clearCompleted: () => void;
+	/** SCRUM-74: cancel every queued/active job (running one aborts via onCancel). */
+	cancelAll: () => void;
 }
 
 export const useExportQueueStore = create<ExportQueueState>((set) => ({
@@ -62,6 +64,16 @@ export const useExportQueueStore = create<ExportQueueState>((set) => ({
 					job.status !== "done" &&
 					job.status !== "cancelled" &&
 					job.status !== "failed",
+			),
+		})),
+	cancelAll: () =>
+		set((state) => ({
+			jobs: state.jobs.map((job) =>
+				job.status === "done" ||
+				job.status === "cancelled" ||
+				job.status === "failed"
+					? job
+					: { ...job, status: "cancelled" as const },
 			),
 		})),
 }));

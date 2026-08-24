@@ -11,6 +11,7 @@ import {
 	rebaseTracksToTimeWindow,
 	resolveExportRange,
 } from "@/lib/timeline-window";
+import { resolveAspectCanvas } from "@/lib/aspect";
 
 interface RenderProgress {
 	frame: number;
@@ -39,7 +40,23 @@ export async function exportDesktopProject({
 	if (duration === 0) return { success: false, error: "Project is empty" };
 
 	const exportFps = options.fps || activeProject.settings.fps;
-	const canvasSize = activeProject.settings.canvasSize;
+
+	// SCRUM-74: render-time aspect override — same policy as the browser path.
+	// Applied ONLY to this render; the project canvas setting is untouched.
+	const projectCanvasSize = activeProject.settings.canvasSize;
+	const renderCanvas = options.aspectOverride
+		? resolveAspectCanvas({
+				base: projectCanvasSize,
+				aspectOverride: options.aspectOverride,
+			})
+		: projectCanvasSize;
+	const targetHeight =
+		options.resolution && options.resolution !== "source"
+			? Number.parseInt(options.resolution.replace("p", ""), 10)
+			: renderCanvas.height;
+	const targetWidth = Math.round(
+		(renderCanvas.width / renderCanvas.height) * targetHeight,
+	);
 
 	// SCRUM-71: optional range-only render — rebase cloned tracks into the
 	// window so downstream clip extraction sees a t=0-based mini-timeline.
@@ -66,13 +83,6 @@ export async function exportDesktopProject({
 					end: rangeEnd,
 				})
 			: tracks;
-	const targetHeight =
-		options.resolution && options.resolution !== "source"
-			? Number.parseInt(options.resolution.replace("p", ""), 10)
-			: canvasSize.height;
-	const targetWidth = Math.round(
-		(canvasSize.width / canvasSize.height) * targetHeight,
-	);
 	// Need even dimensions for libx264
 	const w = targetWidth % 2 === 0 ? targetWidth : targetWidth - 1;
 	const h = targetHeight % 2 === 0 ? targetHeight : targetHeight - 1;

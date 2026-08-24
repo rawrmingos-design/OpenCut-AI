@@ -31,6 +31,11 @@ import { hasMediaId } from "@/lib/timeline";
 import { trimTimelineToRange } from "@/lib/timeline-edits";
 import { useExportQueueStore } from "@/stores/export-queue-store";
 import { DEFAULT_EXPORT_OPTIONS } from "@/constants/export-constants";
+import {
+	BATCH_EXPORT_DEFAULTS,
+	buildBatchExportJobs,
+	queueBatchExportJobs,
+} from "@/lib/batch-export";
 import { ClipsGallery } from "./clips-gallery";
 import type { TimelineElement } from "@/types/timeline";
 
@@ -45,6 +50,7 @@ export function PodcastClipsView() {
 		id: string;
 		file: Blob;
 	} | null>(null);
+	const [batchMinScore, setBatchMinScore] = useState(0);
 
 	// Clip finder state
 	const [clips, setClips] = useState<ClipCandidate[]>([]);
@@ -320,6 +326,34 @@ export function PodcastClipsView() {
 		},
 		[editor, addExportJob],
 	);
+
+	// ── Export All (SCRUM-74: one-click batch queue) ──
+	const handleExportAllClips = useCallback(() => {
+		const activeProject = editor.project.getActive();
+		if (!activeProject) {
+			toast.error("No active project");
+			return;
+		}
+		const plans = buildBatchExportJobs({
+			projectName: activeProject.metadata.name,
+			clips,
+			fps: activeProject.settings.fps,
+			minScore: batchMinScore,
+			aspectOverride: BATCH_EXPORT_DEFAULTS.aspectOverride,
+		});
+		if (plans.length === 0) {
+			toast.info("No clips match the score filter");
+			return;
+		}
+		queueBatchExportJobs({
+			addJob: addExportJob,
+			projectId: activeProject.metadata.id,
+			plans,
+		});
+		toast.success(`${plans.length} exports queued`, {
+			description: "9:16 renders — progress in the render queue",
+		});
+	}, [editor, clips, addExportJob, batchMinScore]);
 
 	// ── Apply Clip (generate subtitle elements — background task) ──
 	const handleApplyClip = useCallback(
@@ -716,6 +750,38 @@ export function PodcastClipsView() {
 									onPreview={handlePreviewClip}
 									onApply={(clip) => void handleApplyClip(clip)}
 									onExport={handleExportClip}
+									header={
+										<div className="flex items-center justify-between gap-2 rounded-md border bg-muted/30 px-2 py-1.5">
+											<div className="flex items-center gap-1.5">
+												<span className="text-[10px] text-muted-foreground">
+													Min score
+												</span>
+												<Select
+													value={String(batchMinScore)}
+													onValueChange={(v) => setBatchMinScore(Number(v))}
+												>
+													<SelectTrigger className="h-6 w-[74px] px-2 text-[10px]">
+														<SelectValue />
+													</SelectTrigger>
+													<SelectContent>
+														<SelectItem value="0">All</SelectItem>
+														<SelectItem value="60">60+</SelectItem>
+														<SelectItem value="80">80+</SelectItem>
+													</SelectContent>
+												</Select>
+											</div>
+											<Button
+												variant="default"
+												size="sm"
+												type="button"
+												className="h-7 px-2.5 text-[11px]"
+												disabled={isProcessing || clips.length === 0}
+												onClick={handleExportAllClips}
+											>
+												Export all ({clips.filter((c) => c.score >= batchMinScore).length})
+											</Button>
+										</div>
+									}
 								/>
 							</div>
 						)}

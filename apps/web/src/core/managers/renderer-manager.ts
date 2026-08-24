@@ -1,6 +1,7 @@
 import type { EditorCore } from "@/core";
 import type { RootNode } from "@/services/renderer/nodes/root-node";
 import type { ExportOptions, ExportResult } from "@/types/export";
+import { resolveAspectCanvas } from "@/lib/aspect";
 import { CanvasRenderer } from "@/services/renderer/canvas-renderer";
 import { SceneExporter } from "@/services/renderer/scene-exporter";
 import { exportDesktopProject } from "@/services/renderer/desktop-renderer";
@@ -159,7 +160,16 @@ export class RendererManager {
 			}
 
 			const exportFps = fps || activeProject.settings.fps;
-			const canvasSize = activeProject.settings.canvasSize;
+			let canvasSize = activeProject.settings.canvasSize;
+
+			// SCRUM-74: render-time aspect override (e.g. 9:16 for batch shorts).
+			// Applied ONLY to this render — the project canvas setting is untouched.
+			if (options.aspectOverride) {
+				canvasSize = resolveAspectCanvas({
+					base: canvasSize,
+					aspectOverride: options.aspectOverride,
+				});
+			}
 
 			let audioBuffer: AudioBuffer | null = null;
 			if (includeAudio) {

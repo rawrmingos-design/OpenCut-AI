@@ -119,6 +119,7 @@ function JobRow({ job }: { job: ExportJob }) {
 export function ExportQueuePanel() {
 	const jobs = useExportQueueStore((s) => s.jobs);
 	const clearCompleted = useExportQueueStore((s) => s.clearCompleted);
+	const cancelAll = useExportQueueStore((s) => s.cancelAll);
 
 	if (jobs.length === 0) return null;
 
@@ -126,6 +127,10 @@ export function ExportQueuePanel() {
 		(j) =>
 			j.status !== "done" && j.status !== "cancelled" && j.status !== "failed",
 	).length;
+	// SCRUM-74: batch summary over finished jobs.
+	const doneCount = jobs.filter((j) => j.status === "done").length;
+	const failedCount = jobs.filter((j) => j.status === "failed").length;
+	const cancelledCount = jobs.filter((j) => j.status === "cancelled").length;
 
 	return (
 		<div className="fixed right-4 bottom-4 z-50 w-72 space-y-1.5 rounded-lg border bg-background p-2 shadow-lg">
@@ -138,15 +143,40 @@ export function ExportQueuePanel() {
 						</span>
 					)}
 				</p>
-				<Button
-					variant="ghost"
-					size="sm"
-					className="h-6 px-2 text-[10px]"
-					onClick={clearCompleted}
-				>
-					Clear finished
-				</Button>
+				<div className="flex items-center gap-0.5">
+					{activeCount > 0 && (
+						<Button
+							variant="ghost"
+							size="sm"
+							className="h-6 px-2 text-[10px]"
+							onClick={cancelAll}
+						>
+							Cancel all
+						</Button>
+					)}
+					<Button
+						variant="ghost"
+						size="sm"
+						className="h-6 px-2 text-[10px]"
+						onClick={clearCompleted}
+					>
+						Clear finished
+					</Button>
+				</div>
 			</div>
+			{(doneCount > 0 || failedCount > 0 || cancelledCount > 0) &&
+				activeCount === 0 && (
+					<p
+						className={cn(
+							"px-1 pb-1 text-[10px]",
+							failedCount > 0 ? "text-destructive" : "text-muted-foreground",
+						)}
+					>
+						Batch summary: {doneCount} done
+						{failedCount > 0 ? `, ${failedCount} failed` : ""}
+						{cancelledCount > 0 ? `, ${cancelledCount} cancelled` : ""}
+					</p>
+				)}
 			{jobs.map((job) => (
 				<JobRow key={job.id} job={job} />
 			))}
