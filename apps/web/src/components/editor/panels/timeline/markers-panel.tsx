@@ -155,7 +155,6 @@ function MarkerItem({
 			</div>
 			{isEditing ? (
 				<input
-					autoFocus
 					className="w-full text-xs bg-transparent border-b border-primary outline-none"
 					value={marker.note ?? ""}
 					onChange={(e) => onNoteChange(e.target.value)}

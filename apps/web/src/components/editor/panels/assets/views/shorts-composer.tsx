@@ -3,7 +3,6 @@
 import { useState, useCallback } from "react";
 import { cn } from "@/utils/ui";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Film02Icon } from "@hugeicons/core-free-icons";

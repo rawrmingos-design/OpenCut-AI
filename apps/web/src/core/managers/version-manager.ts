@@ -785,7 +785,6 @@ export class VersionManager {
 				const nextAct = actionMap.get(toRebase[nextIdx].id);
 				if (nextAct?.action === "squash") {
 					pendingSquash = newCommit;
-					continue;
 				}
 			}
 		}

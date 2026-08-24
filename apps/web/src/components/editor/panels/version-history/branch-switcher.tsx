@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Button } from "@/components/ui/button";
 import {
 	Popover,
 	PopoverContent,
@@ -62,7 +61,7 @@ export function BranchSwitcher() {
 	const handleCreateBranch = useCallback(
 		async (name: string, description?: string) => {
 			try {
-				const branch = await editor.version.createBranch(name);
+				const _branch = await editor.version.createBranch(name);
 				if (description) {
 					await editor.version.updateBranch(name, { description });
 				}

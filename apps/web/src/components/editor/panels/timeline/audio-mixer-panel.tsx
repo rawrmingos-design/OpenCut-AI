@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, } from "react";
 import { useEditor } from "@/hooks/use-editor";
 import { cn } from "@/utils/ui";
 import type { TimelineTrack, VideoTrack, AudioTrack } from "@/types/timeline";

@@ -17,7 +17,6 @@ import { useEditor } from "@/hooks/use-editor";
 import { useVersionStore } from "@/stores/version-store";
 import { ConflictResolutionView } from "./conflict-resolution";
 import type { Branch, MergeResult } from "@/types/version";
-import type { ConflictResolver } from "@/services/merge/conflict-resolver";
 
 type MergeStep = "select" | "preview" | "conflicts" | "done";
 
@@ -81,7 +80,7 @@ export function MergeDialog({
 
 			// If there were conflicts, get resolved snapshot
 			const resolver = editor.version.getConflictResolver();
-			if (resolver && resolver.isFullyResolved()) {
+			if (resolver?.isFullyResolved()) {
 				finalSnapshot = resolver.applyResolutions();
 			}
 

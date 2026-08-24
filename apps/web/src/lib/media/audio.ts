@@ -146,7 +146,7 @@ async function resolveAudioBufferForElement({
 	try {
 		if (element.sourceType === "upload") {
 			const asset = mediaMap.get(element.mediaId);
-			if (!asset || asset.type !== "audio") return null;
+			if (asset?.type !== "audio") return null;
 
 			const arrayBuffer = await asset.file.arrayBuffer();
 			return await audioContext.decodeAudioData(arrayBuffer.slice(0));

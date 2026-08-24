@@ -87,7 +87,7 @@ export const AUDIO_EFFECT_DEFINITIONS: Record<AudioEffectType, AudioEffectDefini
 			comp.knee.value = 6;
 
 			const makeup = ctx.createGain();
-			makeup.gain.value = Math.pow(10, (params.makeupGain ?? 0) / 20);
+			makeup.gain.value = 10 ** ((params.makeupGain ?? 0) / 20);
 			comp.connect(makeup);
 			return [comp, makeup];
 		},
@@ -142,7 +142,7 @@ export const AUDIO_EFFECT_DEFINITIONS: Record<AudioEffectType, AudioEffectDefini
 			for (let channel = 0; channel < 2; channel++) {
 				const data = impulse.getChannelData(channel);
 				for (let i = 0; i < length; i++) {
-					const decay = Math.pow(1 - damping, i / sampleRate);
+					const decay = (1 - damping) ** (i / sampleRate);
 					data[i] = (Math.random() * 2 - 1) * decay * Math.exp(-i / (length * 0.3));
 				}
 			}

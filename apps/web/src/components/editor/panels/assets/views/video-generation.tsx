@@ -20,8 +20,6 @@ import {
 	SparklesIcon,
 	Image01Icon,
 	Add01Icon,
-	Link01Icon,
-	Clock01Icon,
 	Download04Icon,
 	InformationSquareIcon,
 } from "@hugeicons/core-free-icons";
@@ -109,6 +107,7 @@ export function VideoGenerationPanel({ className }: { className?: string }) {
 				<div className="flex gap-1">
 					{(Object.entries(MODE_LABELS) as [VideoGenMode, typeof MODE_LABELS[VideoGenMode]][]).map(([mode, info]) => (
 						<button
+							type="button"
 							key={mode}
 							className={cn(
 								"flex-1 rounded border px-2 py-1.5 text-[8px] text-center transition-colors",
@@ -129,6 +128,7 @@ export function VideoGenerationPanel({ className }: { className?: string }) {
 					<span className="text-[9px] font-medium text-muted-foreground">Provider</span>
 					<div className="flex flex-wrap gap-1">
 						<button
+							type="button"
 							className={cn(
 								"rounded px-1.5 py-0.5 text-[8px] transition-colors",
 								providerFilter === "all"
@@ -141,6 +141,7 @@ export function VideoGenerationPanel({ className }: { className?: string }) {
 						</button>
 						{VIDEO_PROVIDER_CONFIGS.map((pc) => (
 							<button
+								type="button"
 								key={pc.provider}
 								className={cn(
 									"rounded px-1.5 py-0.5 text-[8px] transition-colors",
@@ -154,6 +155,7 @@ export function VideoGenerationPanel({ className }: { className?: string }) {
 							</button>
 						))}
 						<button
+							type="button"
 							className={cn(
 								"rounded px-1.5 py-0.5 text-[8px] transition-colors",
 								providerFilter === "local"
@@ -196,6 +198,7 @@ export function VideoGenerationPanel({ className }: { className?: string }) {
 					<div className="flex flex-wrap gap-1">
 						{VIDEO_ASPECT_RATIOS.filter((r) => !model || model.aspectRatios.includes(r.id)).map((ar) => (
 							<button
+								type="button"
 								key={ar.id}
 								className={cn(
 									"rounded border px-2 py-1 text-[8px] transition-colors",

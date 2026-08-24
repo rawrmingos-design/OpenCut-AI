@@ -46,8 +46,8 @@ export function useShortsComposer() {
 			try {
 				const totalDuration = segments[segments.length - 1].end;
 
-				let bestStart = totalDuration * 0.1;
-				let bestEnd = Math.min(bestStart + opts.targetDuration, totalDuration);
+				const bestStart = totalDuration * 0.1;
+				const bestEnd = Math.min(bestStart + opts.targetDuration, totalDuration);
 
 				bgTasks.updateTask(taskId, { progress: "Trimming clip..." });
 

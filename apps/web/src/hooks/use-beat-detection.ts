@@ -102,7 +102,6 @@ export function useBeatDetection() {
 							audioBuffer = await audioContext.decodeAudioData(ab);
 							break;
 						} catch {
-							continue;
 						}
 					}
 					if (audioBuffer) break;

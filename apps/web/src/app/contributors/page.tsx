@@ -4,7 +4,7 @@ import Image from "next/image";
 import { GitHubContributeSection } from "@/components/gitHub-contribute-section";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
-import { EXTERNAL_TOOLS, SOCIAL_LINKS, UPSTREAM_URL } from "@/constants/site-constants";
+import { EXTERNAL_TOOLS, UPSTREAM_URL } from "@/constants/site-constants";
 import { BasePage } from "../base-page";
 
 export const metadata: Metadata = {
@@ -63,7 +63,7 @@ export default async function ContributorsPage() {
 	const contributors = await getContributors();
 	const topContributors = contributors.slice(0, 2);
 	const otherContributors = contributors.slice(2);
-	const totalContributions = contributors.reduce(
+	const _totalContributions = contributors.reduce(
 		(sum, c) => sum + c.contributions,
 		0,
 	);
@@ -188,7 +188,7 @@ export default async function ContributorsPage() {
 	);
 }
 
-function StatItem({ value, label }: { value: number; label: string }) {
+function _StatItem({ value, label }: { value: number; label: string }) {
 	return (
 		<div className="flex items-center gap-2">
 			<div className="bg-foreground size-2 rounded-full" />

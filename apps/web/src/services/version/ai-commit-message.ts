@@ -1,4 +1,4 @@
-import type { TimelineDiff, ChangeSummary } from "@/types/version";
+import type { TimelineDiff, } from "@/types/version";
 
 const AI_BACKEND_URL =
 	typeof process !== "undefined"

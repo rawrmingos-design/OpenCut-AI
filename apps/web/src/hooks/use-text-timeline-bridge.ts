@@ -359,7 +359,7 @@ export function useTextTimelineBridge() {
 		(
 			fromIndex: number,
 			toIndex: number,
-			newTimings: {
+			_newTimings: {
 				segmentId: number;
 				newStart: number;
 				newEnd: number;

@@ -1,12 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { useEditor } from "@/hooks/use-editor";
+import { useState, } from "react";
 import {
 	computeTimelineHeatmap,
 	HEATMAP_COLORS,
-	type HeatmapSegment,
 } from "@/services/diff/visual-diff";
 import type { TimelineDiff, Commit } from "@/types/version";
 

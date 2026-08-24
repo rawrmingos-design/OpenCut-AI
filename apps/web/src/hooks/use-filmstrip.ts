@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useEditor } from "@/hooks/use-editor";
 import type { MediaAsset } from "@/types/assets";
-import type { VideoElement, ImageElement } from "@/types/timeline";
 
 interface FilmstripState {
 	thumbnails: string[];
@@ -50,7 +48,7 @@ async function generateFilmstrip({
 
 		video.onloadedmetadata = () => {
 			const duration = video.duration;
-			if (!duration || !isFinite(duration)) {
+			if (!duration || !Number.isFinite(duration)) {
 				clearTimeout(timeout);
 				resolve([]);
 				return;
@@ -113,7 +111,7 @@ export function useFilmstrip({
 	const abortRef = useRef(false);
 
 	const generate = useCallback(async () => {
-		if (!mediaAsset || mediaAsset.type !== "video" || clipDuration <= 0) {
+		if (mediaAsset?.type !== "video" || clipDuration <= 0) {
 			setState({ thumbnails: [], loading: false });
 			return;
 		}

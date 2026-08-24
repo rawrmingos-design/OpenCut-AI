@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState, useEffect } from "react";
+import { useCallback, useRef, useEffect } from "react";
 import { useEditor } from "@/hooks/use-editor";
 import { cn } from "@/utils/ui";
 import { resolvePlaybackRateAtTime } from "@/lib/animation";

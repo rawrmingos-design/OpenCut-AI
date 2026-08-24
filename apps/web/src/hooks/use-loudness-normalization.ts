@@ -9,8 +9,8 @@ function measureLUFS(audioBuffer: AudioBuffer): LUFSMeasurement {
 	const sampleRate = audioBuffer.sampleRate;
 	const channelData = audioBuffer.getChannelData(0);
 	const blockSize = Math.round(sampleRate * 0.4);
-	const kWeightingFreq = 1681.0;
-	const gb = Math.pow(10, 0.064 * 1);
+	const _kWeightingFreq = 1681.0;
+	const _gb = 10 ** (0.064 * 1);
 
 	const blockLoudness: number[] = [];
 	let maxMomentary = -Infinity;
@@ -93,7 +93,6 @@ export function useLoudnessNormalization() {
 						merged.set(channelData, allSamples.length);
 						allSamples = merged;
 					} catch {
-						continue;
 					}
 				}
 			}
@@ -142,7 +141,7 @@ export function useLoudnessNormalization() {
 			}
 
 			const deltaLUFS = config.targetLUFS - measurement.integrated;
-			const gainLinear = Math.pow(10, deltaLUFS / 20);
+			const gainLinear = 10 ** (deltaLUFS / 20);
 			const gainDb = Math.round(deltaLUFS * 100) / 100;
 
 			const tracks = editor.timeline.getTracks();

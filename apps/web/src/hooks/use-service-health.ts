@@ -209,7 +209,7 @@ export function useServiceHealth(pollEnabled = true) {
 				method: "POST",
 				signal: AbortSignal.timeout(300_000),
 			});
-		} catch (error) {
+		} catch (_error) {
 			throw new Error(
 				`Cannot reach ${service} service at ${url}. Make sure it is running.`,
 			);

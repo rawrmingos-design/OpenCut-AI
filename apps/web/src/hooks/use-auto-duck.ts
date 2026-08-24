@@ -62,7 +62,7 @@ export function useAutoDuck() {
 			}> = [];
 
 			const normalVolume = 1;
-			const duckedVolume = Math.pow(10, opts.duckAmountDb / 20);
+			const duckedVolume = 10 ** (opts.duckAmountDb / 20);
 
 			for (const seg of speechSegments) {
 				const segStart = seg.start;

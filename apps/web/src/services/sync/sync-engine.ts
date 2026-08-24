@@ -1,4 +1,4 @@
-import type { Commit, Branch, Tag } from "@/types/version";
+import type { Commit, } from "@/types/version";
 import type { VersionStorage } from "@/services/storage/version-storage";
 
 export type SyncStatus =

@@ -186,8 +186,8 @@ export function TemplatePanel({ className }: TemplatePanelProps) {
 	const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [isLoadingAudio, setIsLoadingAudio] = useState(false);
-	const [audioStatus, setAudioStatus] = useState<string | null>(null);
-	const [jobId, setJobId] = useState<string | null>(null);
+	const [_audioStatus, setAudioStatus] = useState<string | null>(null);
+	const [_jobId, setJobId] = useState<string | null>(null);
 	const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 	const bgTaskIdRef = useRef<string | null>(null);
 	const addBgTask = useBackgroundTasksStore((s) => s.addTask);

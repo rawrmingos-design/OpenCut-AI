@@ -178,7 +178,7 @@ export class MediaManager {
 			}
 		});
 
-		for (const [id, controller] of this.proxyGenerators) {
+		for (const [_id, controller] of this.proxyGenerators) {
 			controller.abort();
 		}
 		this.proxyGenerators.clear();
@@ -267,7 +267,7 @@ export class MediaManager {
 		onProgress?: (progress: number) => void;
 	}): Promise<void> {
 		const asset = this.assets.find((a) => a.id === assetId);
-		if (!asset || asset.type !== "video") return;
+		if (asset?.type !== "video") return;
 
 		const existing = this.proxyGenerators.get(assetId);
 		if (existing) {
@@ -336,7 +336,7 @@ export class MediaManager {
 		projectId: string;
 	}): Promise<void> {
 		const asset = this.assets.find((a) => a.id === assetId);
-		if (!asset || !asset.proxy) return;
+		if (!asset?.proxy) return;
 
 		try {
 			const proxyFile = await storageService.loadProxyFile({

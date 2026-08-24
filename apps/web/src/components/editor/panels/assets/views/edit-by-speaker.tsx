@@ -27,7 +27,7 @@ function useFirstMediaFile(): File | null {
 }
 
 export function EditBySpeakerPanel() {
-	const editor = useEditor();
+	const _editor = useEditor();
 	const segments = useTranscriptStore((s) => s.segments);
 	const speakerNames = useTranscriptStore((s) => s.speakerNames);
 	const { getSpeakers, removeSpeaker, tightenSpeakerGaps, isolateSpeaker } =

@@ -124,7 +124,7 @@ export function QuickActionsBar({ className }: { className?: string }) {
 	}, [segments]);
 
 	// Derive effect track presence
-	const hasEffectTrack = useMemo(() => {
+	const _hasEffectTrack = useMemo(() => {
 		const tracks = editor.timeline.getTracks();
 		return tracks.some((t) => t.type === "effect" && t.elements.length > 0);
 	}, [editor, segments]);

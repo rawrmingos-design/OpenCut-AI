@@ -9,7 +9,6 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import {
-	ArrowUp01Icon,
 	Cancel01Icon,
 	Tick01Icon,
 	SparklesIcon,

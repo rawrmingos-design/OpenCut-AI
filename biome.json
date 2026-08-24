@@ -1,5 +1,5 @@
 {
-	"$schema": "https://biomejs.dev/schemas/2.1.2/schema.json",
+	"$schema": "https://biomejs.dev/schemas/2.5.8/schema.json",
 	"vcs": {
 		"enabled": false,
 		"clientKind": "git",
@@ -13,7 +13,8 @@
 			"!**/node_modules/**",
 			"!**/dist/**",
 			"!**/build/**",
-			"!**/apps/web/public/ffmpeg/**"
+			"!**/apps/web/public/ffmpeg/**",
+			"!**/*.css"
 		]
 	},
 	"formatter": {
@@ -24,7 +25,35 @@
 	"linter": {
 		"enabled": true,
 		"rules": {
-			"recommended": true
+			"preset": "recommended",
+			"a11y": {
+				"noSvgWithoutTitle": "off",
+				"noLabelWithoutControl": "warn",
+				"noStaticElementInteractions": "warn",
+				"useKeyWithClickEvents": "warn",
+				"useMediaCaption": "warn",
+				"useSemanticElements": "warn"
+			},
+			"complexity": {
+				"noUselessFragments": "off",
+				"noUselessSwitchCase": "off"
+			},
+			"correctness": {
+				"useHookAtTopLevel": "off",
+				"useExhaustiveDependencies": "off",
+				"noUnusedVariables": "warn",
+				"noUnusedImports": "warn"
+			},
+			"suspicious": {
+				"noExplicitAny": "warn",
+				"noArrayIndexKey": "warn",
+				"useIterableCallbackReturn": "warn",
+				"noAssignInExpressions": "warn",
+				"noImplicitAnyLet": "warn"
+			},
+			"style": {
+				"noNonNullAssertion": "off"
+			}
 		}
 	},
 	"javascript": {

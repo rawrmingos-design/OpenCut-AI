@@ -72,14 +72,17 @@ export function JsonLd() {
 		<>
 			<script
 				type="application/ld+json"
+				// biome-ignore lint/security/noDangerouslySetInnerHtml: static JSON.stringify of local schema.org objects, no user input
 				dangerouslySetInnerHTML={{ __html: JSON.stringify(organization) }}
 			/>
 			<script
 				type="application/ld+json"
+				// biome-ignore lint/security/noDangerouslySetInnerHtml: static JSON.stringify of local schema.org objects, no user input
 				dangerouslySetInnerHTML={{ __html: JSON.stringify(website) }}
 			/>
 			<script
 				type="application/ld+json"
+				// biome-ignore lint/security/noDangerouslySetInnerHtml: static JSON.stringify of local schema.org objects, no user input
 				dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareApp) }}
 			/>
 		</>

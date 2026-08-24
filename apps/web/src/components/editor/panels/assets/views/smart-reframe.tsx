@@ -69,6 +69,7 @@ export function SmartReframePanel({ className }: { className?: string }) {
 					<div className="grid grid-cols-2 gap-1.5">
 						{REFRAME_PRESETS.map((preset) => (
 							<button
+								type="button"
 								key={preset.id}
 								className={cn(
 									"rounded border px-2 py-1.5 text-[9px] text-left transition-colors",

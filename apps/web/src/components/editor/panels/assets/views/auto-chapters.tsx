@@ -9,7 +9,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/utils/ui";
 import { toast } from "sonner";
-import type { Chapter } from "@/types/ai";
 import {
 	copyYouTubeChapters,
 	copyYouTubeDescription,

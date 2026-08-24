@@ -77,7 +77,7 @@ export function useABTesting() {
 			const result = await aiClient.getScoreHistory(projectId, limit);
 			setScoreHistory(result);
 			return result;
-		} catch (err) {
+		} catch (_err) {
 			toast.error("Failed to load score history");
 			return null;
 		} finally {
@@ -91,7 +91,7 @@ export function useABTesting() {
 			const result = await aiClient.getScoreAnalytics(projectId);
 			setAnalytics(result);
 			return result;
-		} catch (err) {
+		} catch (_err) {
 			toast.error("Failed to load analytics");
 			return null;
 		} finally {

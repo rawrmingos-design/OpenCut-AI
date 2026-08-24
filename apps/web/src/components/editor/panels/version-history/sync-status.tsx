@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Button } from "@/components/ui/button";
 import type { SyncState, SyncEngine } from "@/services/sync/sync-engine";
 
 const STATUS_CONFIG: Record<
@@ -58,7 +57,7 @@ export function SyncStatusIndicator({
 		} catch {}
 	}, [syncEngine]);
 
-	if (!syncEngine || !syncEngine.getRepoId()) {
+	if (!syncEngine?.getRepoId()) {
 		return null;
 	}
 

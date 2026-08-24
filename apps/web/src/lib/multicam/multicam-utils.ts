@@ -1,5 +1,5 @@
 import { generateUUID } from "@/utils/id";
-import type { TimelineTrack, TimelineElement, VideoElement } from "@/types/timeline";
+import type { TimelineTrack, } from "@/types/timeline";
 
 export interface MulticamAngle {
 	trackId: string;

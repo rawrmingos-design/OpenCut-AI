@@ -9,7 +9,6 @@ import {
 	toSarvamCode,
 } from "@/constants/sarvam-constants";
 import { toast } from "sonner";
-import type { TranscriptionSegment } from "@/types/ai";
 
 export type DubbingEngine = "sarvam" | "smallest" | "local";
 
@@ -74,7 +73,7 @@ export function useAIDubbing() {
 			const totalSegments = targetSegments.length;
 
 			const tracks = editor.timeline.getTracks();
-			let audioTrack = tracks.find((t) => t.type === "audio");
+			const audioTrack = tracks.find((t) => t.type === "audio");
 			let trackId = audioTrack?.id;
 
 			if (!trackId) {

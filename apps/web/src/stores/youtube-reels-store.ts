@@ -2,9 +2,7 @@ import { create } from "zustand";
 import { aiClient } from "@/lib/ai-client";
 import type {
 	YouTubeVideoMeta,
-	YouTubeJobStatus,
 	ScoredClipData,
-	EngagementScoreResult,
 } from "@/lib/ai-client";
 
 type Phase = "idle" | "input" | "confirming" | "configuring" | "processing" | "reviewing" | "exporting" | "done" | "error";
@@ -115,7 +113,7 @@ export const useYouTubeReelsStore = create<YouTubeReelsState>()((set, get) => ({
 			});
 
 			// Poll for download completion
-			get()._startPolling(resp.job_id, (result) => {
+			get()._startPolling(resp.job_id, (_result) => {
 				set({ phase: "configuring", jobMessage: "Audio ready. Configure clip settings." });
 			});
 		} catch (e: unknown) {

@@ -126,7 +126,7 @@ function ShortcutRow({
 	onStartEdit: () => void;
 	onStopEdit: () => void;
 }) {
-	const customKeybindings = useKeybindingsStore((s) => s.keybindings);
+	const _customKeybindings = useKeybindingsStore((s) => s.keybindings);
 	const [capturedKeys, setCapturedKeys] = useState<string | null>(null);
 
 	const currentShortcut = capturedKeys ?? defaultShortcuts[0] ?? "—";
@@ -164,7 +164,6 @@ function ShortcutRow({
 			<div>
 				{isEditing ? (
 					<input
-						autoFocus
 						readOnly
 						value="Press shortcut..."
 						onKeyDown={handleKeyDown}

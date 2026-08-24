@@ -184,8 +184,8 @@ function smoothCenters(
 function reframeOffset(
 	center: number,
 	defaultCenter: number,
-	targetAspect: number,
-	sourceAspect: number,
+	_targetAspect: number,
+	_sourceAspect: number,
 	padding: number,
 ): number {
 	const usableRange = 1 - padding * 2;

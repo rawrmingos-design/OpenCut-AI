@@ -20,11 +20,11 @@ export function computeTimelineHeatmap(
 	const changeRanges: { start: number; end: number; type: "added" | "removed" | "modified" }[] = [];
 
 	for (const scene of diff.scenes.modified) {
-		for (const elem of scene.elementChanges.added) {
+		for (const _elem of scene.elementChanges.added) {
 			// We don't have exact times in the summary, mark as full range
 			changeRanges.push({ start: 0, end: totalDuration, type: "added" });
 		}
-		for (const elem of scene.elementChanges.removed) {
+		for (const _elem of scene.elementChanges.removed) {
 			changeRanges.push({ start: 0, end: totalDuration, type: "removed" });
 		}
 		for (const mod of scene.elementChanges.modified) {

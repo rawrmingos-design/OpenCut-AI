@@ -9,7 +9,6 @@ import { Film02Icon } from "@hugeicons/core-free-icons";
 import { useSceneDetection } from "@/hooks/use-scene-detection";
 import {
 	DEFAULT_SCENE_OPTIONS,
-	type SceneDetectionOptions,
 } from "@/lib/scene-detection/scene-detection-types";
 
 function formatTime(seconds: number): string {

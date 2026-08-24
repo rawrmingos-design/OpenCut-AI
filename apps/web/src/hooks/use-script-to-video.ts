@@ -66,11 +66,11 @@ export function useScriptToVideo() {
 				bgTasks.updateTask(taskId, { progress: "Generating visuals..." });
 
 				const prompts: string[] = [];
-				let currentTime = 0;
+				let _currentTime = 0;
 				for (const section of sections) {
 					const prompt = `${cfg.style} style, ${section.text.slice(0, 100)}, high quality`;
 					prompts.push(prompt);
-					currentTime += section.duration;
+					_currentTime += section.duration;
 				}
 
 				const canvasSizes: Record<string, { width: number; height: number }> = {

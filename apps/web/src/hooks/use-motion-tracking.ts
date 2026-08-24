@@ -58,7 +58,7 @@ export function useMotionTracking(): UseMotionTrackingReturn {
 				if (!tlTrack) throw new Error("Track not found");
 
 				const element = tlTrack.elements.find((e) => e.id === elementId);
-				if (!element || element.type !== "video") throw new Error("Element must be a video");
+				if (element?.type !== "video") throw new Error("Element must be a video");
 
 				const videoEl = element as VideoElement;
 				if (!videoEl.mediaId) throw new Error("Video has no media source");

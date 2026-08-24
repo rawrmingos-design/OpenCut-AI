@@ -14,7 +14,7 @@ export function LoudnessPanel({ className }: { className?: string }) {
 	const [config, setConfig] = useState<NormalizationConfig>(DEFAULT_NORMALIZATION);
 	const [targetLufs, setTargetLufs] = useState(-14);
 
-	const selectedPreset = LOUDNESS_PRESETS.find((p) => p.targetLUFS === targetLufs);
+	const _selectedPreset = LOUDNESS_PRESETS.find((p) => p.targetLUFS === targetLufs);
 
 	const handleNormalize = useCallback(() => {
 		normalize({ ...config, targetLUFS: targetLufs });

@@ -112,12 +112,15 @@ export function useAudioRecording() {
 
 	const resumeRecording = useCallback(() => {
 		if (mediaRecorderRef.current?.state === "paused") {
+			// Wall clock kept running during the pause; fold that span into
+			// pausedDurationRef so elapsed resumes exactly from state.duration.
+			const pausedSpan = (Date.now() - startTimeRef.current) / 1000 - state.duration;
 			mediaRecorderRef.current.resume();
-			const pauseStart = Date.now();
-			startTimeRef.current = startTimeRef.current;
+			pausedDurationRef.current += Math.max(0, pausedSpan);
 
 			timerRef.current = setInterval(() => {
-				const elapsed = (Date.now() - startTimeRef.current) / 1000;
+				const elapsed =
+					(Date.now() - startTimeRef.current) / 1000 - pausedDurationRef.current;
 				setState((prev) => ({ ...prev, duration: elapsed }));
 			}, 50);
 

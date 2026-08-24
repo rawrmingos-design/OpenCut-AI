@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { cn } from "@/utils/ui";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -289,7 +288,7 @@ export function ImageGenDialog({
 							<div className="relative rounded-lg overflow-hidden border bg-accent">
 								<img
 									src={result.url}
-									alt="Generated image"
+									alt="AI generation result"
 									className="w-full h-auto object-contain max-h-64"
 								/>
 							</div>

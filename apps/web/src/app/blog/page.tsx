@@ -19,7 +19,7 @@ export const metadata: Metadata = {
 
 export default async function BlogPage() {
 	const data = await getPosts();
-	if (!data || !data.posts) return <div>No posts yet</div>;
+	if (!data?.posts) return <div>No posts yet</div>;
 
 	return (
 		<BasePage

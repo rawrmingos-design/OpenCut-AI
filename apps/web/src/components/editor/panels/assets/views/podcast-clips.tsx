@@ -26,7 +26,7 @@ import {
 	type PopoverSubtitlePreset,
 } from "@/lib/podcast/subtitle-presets";
 import { buildQuestionCardElement, QUESTION_CARD_TEMPLATES } from "@/lib/templates/question-card";
-import type { ClipCandidate, QuestionCard, FaceFrame } from "@/types/ai";
+import type { ClipCandidate, QuestionCard, } from "@/types/ai";
 import { hasMediaId } from "@/lib/timeline";
 import type { TimelineElement } from "@/types/timeline";
 

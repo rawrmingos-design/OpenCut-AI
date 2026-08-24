@@ -83,7 +83,7 @@ const FEATURES = [
 	},
 ];
 
-function CheckIcon() {
+function _CheckIcon() {
 	return (
 		<svg className="size-4 text-green-500 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
 			<path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -91,7 +91,7 @@ function CheckIcon() {
 	);
 }
 
-function CrossIcon() {
+function _CrossIcon() {
 	return (
 		<svg className="size-4 text-red-400 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
 			<path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />

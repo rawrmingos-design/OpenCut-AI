@@ -22,12 +22,12 @@ export class NestClipsCommand extends Command {
 		const results = editor.timeline.getElementsWithTracks({ elements: this.elements });
 		if (results.length < 2) return;
 
-		const firstElement = results[0].element;
+		const _firstElement = results[0].element;
 		const minStartTime = Math.min(...results.map((r) => r.element.startTime));
 		const maxEndTime = Math.max(...results.map((r) => r.element.startTime + r.element.duration));
 		const compoundDuration = maxEndTime - minStartTime;
 
-		const innerTracks = this.extractInnerTracks(results, minStartTime);
+		const _innerTracks = this.extractInnerTracks(results, minStartTime);
 
 		const compoundElement: TimelineElement = {
 			id: this.compoundElementId,

@@ -63,7 +63,7 @@ export function CommitDialog() {
 		store.setIsCommitting(true);
 
 		try {
-			const commit = await editor.version.commit(message.trim(), {
+			const _commit = await editor.version.commit(message.trim(), {
 				tag: tagName.trim() || undefined,
 			});
 

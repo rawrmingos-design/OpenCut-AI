@@ -66,7 +66,7 @@ const ENGINES: Array<{
 export function AIDubbingPanel() {
 	const segments = useTranscriptStore((s) => s.segments);
 	const language = useTranscriptStore((s) => s.language);
-	const editor = useEditor();
+	const _editor = useEditor();
 	const { runDubbing, isDubbing, progress } = useAIDubbing();
 
 	const [targetLanguage, setTargetLanguage] = useState("hi");

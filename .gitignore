@@ -43,3 +43,4 @@ ai-generated/
 
 *.md
 !apps/web/content/changelog/**/*.md
+*.tsbuildinfo

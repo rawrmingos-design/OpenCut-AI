@@ -18,7 +18,6 @@ import type {
 	ModelTierSpec,
 	QuestionCardsResult,
 	ReelTemplate,
-	StackMemoryEstimate,
 	TQDownloadProgress,
 	TQLoadResult,
 	TQModelsResponse,
@@ -1559,7 +1558,7 @@ class AIClient {
 		result?: ReelTemplate;
 		error?: string;
 	}> {
-		return this.request("/api/template/jobs/" + jobId);
+		return this.request(`/api/template/jobs/${jobId}`);
 	}
 
 	/** List all template jobs. */

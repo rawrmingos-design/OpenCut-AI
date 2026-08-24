@@ -117,7 +117,7 @@ export function useSmartCut() {
 			if (segsToRemove.length > 0) {
 				useTranscriptStore
 					.getState()
-					.deleteSegments(segsToRemove.filter((n) => !isNaN(n)));
+					.deleteSegments(segsToRemove.filter((n) => !Number.isNaN(n)));
 			}
 
 			compactTimeline(editor);

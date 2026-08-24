@@ -55,7 +55,7 @@ export function useSmartReframe(): UseSmartReframeReturn {
 				if (!track) throw new Error("Track not found");
 
 				const element = track.elements.find((e) => e.id === elementId);
-				if (!element || element.type !== "video") {
+				if (element?.type !== "video") {
 					throw new Error("Element must be a video");
 				}
 

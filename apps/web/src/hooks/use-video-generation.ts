@@ -3,15 +3,12 @@ import { useCallback, useRef, useState } from "react";
 import { aiClient } from "@/lib/ai-client";
 import { getApiKey } from "@/lib/api-keys";
 import {
-	VIDEO_MODELS,
 	VIDEO_ASPECT_RATIOS,
 	getModelById,
-	getProviderForModel,
 	isProviderKeyRequired,
 	type VideoGenMode,
-	type VideoModel,
 } from "@/lib/video-gen/video-gen-types";
-import type { VideoGenRequest, VideoGenResult } from "@/types/ai";
+import type { VideoGenRequest, } from "@/types/ai";
 
 export type VideoGenStatus = "idle" | "enhancing" | "generating" | "polling" | "done" | "error";
 
@@ -64,7 +61,7 @@ export function useVideoGeneration(): UseVideoGenerationReturn {
 	const cancelRef = useRef(false);
 
 	const model = getModelById(selectedModel);
-	const provider = model?.provider || "replicate";
+	const _provider = model?.provider || "replicate";
 
 	const generate = useCallback(
 		async (prompt: string) => {

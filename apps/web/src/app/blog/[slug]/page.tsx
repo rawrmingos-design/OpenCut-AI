@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { BasePage } from "@/app/base-page";
 import Prose from "@/components/ui/prose";
 import { Separator } from "@/components/ui/separator";
-import { getPosts, getSinglePost, processHtmlContent } from "@/lib/blog/query";
+import { getSinglePost, processHtmlContent } from "@/lib/blog/query";
 import type { Author, Post } from "@/types/blog";
 
 type PageProps = {
@@ -19,7 +19,7 @@ export async function generateMetadata({
 
 	const data = await getSinglePost({ slug });
 
-	if (!data || !data.post) return {};
+	if (!data?.post) return {};
 
 	return {
 		title: data.post.title,
@@ -65,7 +65,7 @@ export async function generateStaticParams() {
 export default async function BlogPostPage({ params }: PageProps) {
 	const slug = (await params).slug;
 	const data = await getSinglePost({ slug });
-	if (!data || !data.post) return notFound();
+	if (!data?.post) return notFound();
 
 	const html = await processHtmlContent({ html: data.post.content });
 

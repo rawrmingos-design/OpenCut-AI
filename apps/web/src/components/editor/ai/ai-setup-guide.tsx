@@ -12,7 +12,6 @@ import {
 	DialogHeader,
 	DialogTitle,
 	DialogDescription,
-	DialogBody,
 	DialogFooter,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -26,13 +25,11 @@ import {
 } from "@hugeicons/core-free-icons";
 import { toast } from "sonner";
 import { useAIStatus } from "@/hooks/use-ai-status";
-import { aiClient, type ServicesStatus, type ServiceInfo } from "@/lib/ai-client";
+import { aiClient, } from "@/lib/ai-client";
 import {
 	useServiceHealth,
 	SERVICE_URLS,
 	SERVICE_DOCKER_COMMANDS,
-	type ServiceHealth,
-	type ServiceName,
 } from "@/hooks/use-service-health";
 
 // ----- Types -----

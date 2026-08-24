@@ -12,7 +12,7 @@ import {
 } from "../section";
 import { Button } from "@/components/ui/button";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { CropIcon, Cancel01Icon } from "@hugeicons/core-free-icons";
+import { Cancel01Icon } from "@hugeicons/core-free-icons";
 
 const MASK_SHAPES: { type: MaskShape["type"]; label: string }[] = [
 	{ type: "rectangle", label: "Rectangle" },
@@ -107,7 +107,7 @@ export function CropMaskSection({
 									value={crop.top.toString()}
 									onChange={(e) => {
 										const n = parseFloat(e.target.value);
-										if (!isNaN(n)) updateCrop({ top: Math.max(0, n) });
+										if (!Number.isNaN(n)) updateCrop({ top: Math.max(0, n) });
 									}}
 									onBlur={() => {}}
 									min={0}
@@ -119,7 +119,7 @@ export function CropMaskSection({
 									value={crop.bottom.toString()}
 									onChange={(e) => {
 										const n = parseFloat(e.target.value);
-										if (!isNaN(n)) updateCrop({ bottom: Math.max(0, n) });
+										if (!Number.isNaN(n)) updateCrop({ bottom: Math.max(0, n) });
 									}}
 									onBlur={() => {}}
 									min={0}
@@ -131,7 +131,7 @@ export function CropMaskSection({
 									value={crop.left.toString()}
 									onChange={(e) => {
 										const n = parseFloat(e.target.value);
-										if (!isNaN(n)) updateCrop({ left: Math.max(0, n) });
+										if (!Number.isNaN(n)) updateCrop({ left: Math.max(0, n) });
 									}}
 									onBlur={() => {}}
 									min={0}
@@ -143,7 +143,7 @@ export function CropMaskSection({
 									value={crop.right.toString()}
 									onChange={(e) => {
 										const n = parseFloat(e.target.value);
-										if (!isNaN(n)) updateCrop({ right: Math.max(0, n) });
+										if (!Number.isNaN(n)) updateCrop({ right: Math.max(0, n) });
 									}}
 									onBlur={() => {}}
 									min={0}
@@ -196,7 +196,7 @@ export function CropMaskSection({
 										value={(mask.feather * 100).toFixed(0)}
 										onChange={(e) => {
 											const n = parseFloat(e.target.value);
-											if (!isNaN(n)) updateMask({ feather: Math.max(0, Math.min(100, n)) / 100 });
+											if (!Number.isNaN(n)) updateMask({ feather: Math.max(0, Math.min(100, n)) / 100 });
 										}}
 										onBlur={() => {}}
 										min={0}

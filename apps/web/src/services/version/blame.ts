@@ -1,4 +1,4 @@
-import type { Commit, PropertyChange, SerializedVersionSnapshot } from "@/types/version";
+import type { PropertyChange, SerializedVersionSnapshot } from "@/types/version";
 import type { VersionStorage } from "@/services/storage/version-storage";
 import { categorizeChange, describeChange, valuesDiffer } from "@/services/diff/change-descriptions";
 

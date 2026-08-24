@@ -30,7 +30,7 @@ export function ThumbnailGenPanel({ className }: { className?: string }) {
 		}
 	}, [generate, params, count]);
 
-	const selectedSize = THUMBNAIL_SIZES.find(
+	const _selectedSize = THUMBNAIL_SIZES.find(
 		(s) => s.width === params.width && s.height === params.height,
 	) ?? THUMBNAIL_SIZES[0];
 

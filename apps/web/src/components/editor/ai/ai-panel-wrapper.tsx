@@ -6,7 +6,7 @@ import { useAICommand } from "@/hooks/use-ai-command";
 import { useAIStatus } from "@/hooks/use-ai-status";
 import { AICommandPanel, type AIMessage } from "./ai-command-panel";
 import { SmartSuggestions, type AISuggestion } from "./smart-suggestions";
-import { MemoryStatusBar, type MemoryStatusInfo } from "./memory-status-bar";
+import type { MemoryStatusInfo } from "./memory-status-bar";
 import { AISetupGuide } from "./ai-setup-guide";
 import { cn } from "@/utils/ui";
 import { Button } from "@/components/ui/button";
@@ -168,7 +168,7 @@ export function AIPanelWrapper() {
 		[dismissSuggestion],
 	);
 
-	const memoryStatus: MemoryStatusInfo = useMemo(
+	const _memoryStatus: MemoryStatusInfo = useMemo(
 		() => ({
 			gpuUsedMb: backendStatus?.memoryUsage?.gpu?.usedMb ?? 0,
 			gpuTotalMb: backendStatus?.memoryUsage?.gpu?.totalMb ?? 0,

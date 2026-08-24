@@ -20,7 +20,7 @@ import { useTranscriptStore } from "@/stores/transcript-store";
 import { useBackgroundTasksStore } from "@/stores/background-tasks-store";
 import { useEditor } from "@/hooks/use-editor";
 import { buildImageElement } from "@/lib/timeline/element-utils";
-import type { BRollSuggestion, ImageGenResult } from "@/types/ai";
+import type { BRollSuggestion, } from "@/types/ai";
 import { toast } from "sonner";
 
 // ---------------------------------------------------------------------------
@@ -222,7 +222,7 @@ export function BRollSuggestionsPanel({
 	// ── Auto-insert image as overlay at the suggestion's timestamp ──
 
 	const handleInsertToTimeline = useCallback(
-		(idx: number, suggestion: BRollSuggestion, imageUrl: string) => {
+		(idx: number, suggestion: BRollSuggestion, _imageUrl: string) => {
 			const duration = suggestion.endTime - suggestion.startTime;
 			const element = buildImageElement({
 				mediaId: `broll-${suggestion.segmentIndex}-${Date.now()}`,

@@ -1,10 +1,8 @@
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { ColorPicker } from "@/components/ui/color-picker";
 import { useEditor } from "@/hooks/use-editor";
 import { useState } from "react";
-import type { TextElement } from "@/types/timeline";
 import { toast } from "sonner";
 
 export const SUBTITLE_PRESETS = {

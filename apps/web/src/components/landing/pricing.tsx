@@ -83,7 +83,7 @@ const tiers: PricingTier[] = [
 	},
 ];
 
-const comparisons = [
+const _comparisons = [
 	{ feature: "Monthly cost", opencut: "$0–150", descript: "$24–33/user", kapwing: "$24–79/user", runway: "$12–76/user" },
 	{ feature: "Per-seat pricing", opencut: "No", descript: "Yes", kapwing: "Yes", runway: "Yes" },
 	{ feature: "Usage limits", opencut: "None", descript: "Minutes", kapwing: "Credits", runway: "Credits" },

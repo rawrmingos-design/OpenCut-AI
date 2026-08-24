@@ -463,7 +463,6 @@ function MediaLabelRow({
 	if (isEditing) {
 		return (
 			<input
-				autoFocus
 				type="text"
 				value={draft}
 				onChange={(e) => onDraftChange(e.target.value)}

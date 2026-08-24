@@ -1,4 +1,4 @@
-import type { EditorAction, EditorActionType } from "@/types/ai";
+import type { EditorAction, } from "@/types/ai";
 import { useTranscriptStore } from "@/stores/transcript-store";
 
 function getTranscriptStore() {

@@ -596,10 +596,11 @@ function navigateTo(
 function tokenizePath(path: string): (string | number)[] {
 	const tokens: (string | number)[] = [];
 	const regex = /([^.[]+)|\[(\d+)\]/g;
-	let match: RegExpExecArray | null;
-	while ((match = regex.exec(path))) {
+	let match: RegExpExecArray | null = regex.exec(path);
+	while (match !== null) {
 		if (match[1]) tokens.push(match[1]);
 		else if (match[2]) tokens.push(parseInt(match[2], 10));
+		match = regex.exec(path);
 	}
 	return tokens;
 }

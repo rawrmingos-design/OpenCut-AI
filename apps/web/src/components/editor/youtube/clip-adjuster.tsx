@@ -24,12 +24,12 @@ export function ClipAdjuster({ clip, onSave, onCancel }: ClipAdjusterProps) {
 
 	const handleStartChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const val = parseFloat(e.target.value);
-		if (!isNaN(val) && val >= 0 && val < end) setStart(val);
+		if (!Number.isNaN(val) && val >= 0 && val < end) setStart(val);
 	};
 
 	const handleEndChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const val = parseFloat(e.target.value);
-		if (!isNaN(val) && val > start) setEnd(val);
+		if (!Number.isNaN(val) && val > start) setEnd(val);
 	};
 
 	const durationWarning = duration < 15 ? "Too short (min 15s)" : duration > 90 ? "Too long (max 90s)" : null;

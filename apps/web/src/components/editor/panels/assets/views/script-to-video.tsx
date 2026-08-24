@@ -8,7 +8,6 @@ import { File01Icon } from "@hugeicons/core-free-icons";
 import { useScriptToVideo } from "@/hooks/use-script-to-video";
 import {
 	SCRIPT_STYLES,
-	DEFAULT_SCRIPT_CONFIG,
 	type ScriptToVideoConfig,
 } from "@/lib/script-to-video/script-types";
 

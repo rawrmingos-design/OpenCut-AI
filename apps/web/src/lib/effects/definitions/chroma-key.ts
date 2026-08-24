@@ -62,13 +62,13 @@ export const chromaKeyEffectDefinition: EffectDefinition = {
 			{
 				fragmentShader: chromaKeyShader,
 				uniforms: ({ effectParams }) => {
-					const keyColorRaw = effectParams["keyColor"];
+					const keyColorRaw = effectParams.keyColor;
 					const keyColorHex = typeof keyColorRaw === "string" ? keyColorRaw : "#00b140";
 					const [r, g, b] = hexToRgb(keyColorHex);
 
-					const tolerance = typeof effectParams["tolerance"] === "number" ? effectParams["tolerance"] : 0.35;
-					const softness = typeof effectParams["softness"] === "number" ? effectParams["softness"] : 0.08;
-					const spillSuppress = typeof effectParams["spillSuppress"] === "number" ? effectParams["spillSuppress"] : 0.3;
+					const tolerance = typeof effectParams.tolerance === "number" ? effectParams.tolerance : 0.35;
+					const softness = typeof effectParams.softness === "number" ? effectParams.softness : 0.08;
+					const spillSuppress = typeof effectParams.spillSuppress === "number" ? effectParams.spillSuppress : 0.3;
 
 					return {
 						u_keyColor: [r, g, b],

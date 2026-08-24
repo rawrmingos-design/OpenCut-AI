@@ -1,4 +1,4 @@
-import type { MediaAssetData, ProxyInfo } from "@/services/storage/types";
+import type { MediaAssetData, } from "@/services/storage/types";
 
 export type MediaType = "image" | "video" | "audio";
 

@@ -1,5 +1,4 @@
 import type { ExportFormat, ExportQuality } from "@/types/export";
-import type { TProjectSettings } from "@/types/project";
 import { generateUUID } from "@/utils/id";
 
 export interface ExportPreset {

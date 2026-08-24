@@ -539,7 +539,6 @@ export function TranscriptionPanel({
 												value={editingName}
 												onChange={(e) => setEditingName(e.target.value)}
 												className="text-[11px] font-medium bg-primary/10 border border-primary/30 rounded px-1.5 py-0.5 w-24 outline-none focus:ring-1 focus:ring-primary/50"
-												autoFocus
 												onBlur={() => {
 													if (editingName.trim() && onRenameSpeaker) {
 														onRenameSpeaker(spkId, editingName.trim());
@@ -738,7 +737,6 @@ export function TranscriptionPanel({
 																						value={editingName}
 																						onChange={(e) => setEditingName(e.target.value)}
 																						className="text-[11px] font-medium text-primary bg-primary/10 border border-primary/30 rounded px-1.5 py-0.5 w-24 outline-none focus:ring-1 focus:ring-primary/50"
-																						autoFocus
 																						onBlur={() => {
 																							if (editingName.trim() && onRenameSpeaker) {
 																								onRenameSpeaker(segment.speaker!, editingName.trim());

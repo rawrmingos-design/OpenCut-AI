@@ -14,7 +14,6 @@ import type { TimelineElement } from "@/types/timeline";
 import {
 	TranscriptionPanel,
 	type TranscriptSegment,
-	type TranscriptWord,
 	type SilenceRegion,
 } from "./transcription-panel";
 

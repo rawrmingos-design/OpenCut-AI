@@ -8,14 +8,14 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { useEditor } from "@/hooks/use-editor";
 import { useTranscriptStore } from "@/stores/transcript-store";
-import { buildSpeakerCaptionSegments, getSpeakerColor } from "@/lib/transcription/speaker-captions";
+import { buildSpeakerCaptionSegments, } from "@/lib/transcription/speaker-captions";
 import { toast } from "sonner";
 
 export function SpeakerCaptionsPanel({ className }: { className?: string }) {
 	const editor = useEditor();
 	const segments = useTranscriptStore((s) => s.segments);
 	const [speakerNames, setSpeakerNames] = useState<Record<string, string>>({});
-	const [selectedColorScheme, setSelectedColorScheme] = useState(0);
+	const [_selectedColorScheme, _setSelectedColorScheme] = useState(0);
 
 	const captionSegments = useMemo(
 		() => buildSpeakerCaptionSegments(segments, speakerNames),

@@ -25,7 +25,6 @@ import {
 } from "../../../ui/context-menu";
 import { useTimelineZoom } from "@/hooks/timeline/use-timeline-zoom";
 import { useState, useRef, useCallback } from "react";
-import type { EditorCore } from "@/core";
 import { TimelineTrackContent } from "./timeline-track";
 import { TimelinePlayhead } from "./timeline-playhead";
 import { SelectionBox } from "../../selection-box";
@@ -46,7 +45,6 @@ import {
 	canTrackBeHidden,
 	getTimelineZoomMin,
 	getTimelinePaddingPx,
-	isMainTrack,
 } from "@/lib/timeline";
 import { TimelineToolbar } from "./timeline-toolbar";
 import { useScrollSync } from "@/hooks/timeline/use-scroll-sync";

@@ -111,7 +111,7 @@ export function usePreviewInteraction({
 				elementsWithBounds,
 			});
 
-			if (!hit || hit.element.type !== "text") return;
+			if (hit?.element.type !== "text") return;
 
 			const textElement = hit.element as TextElement;
 			editor.timeline.previewElements({

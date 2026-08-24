@@ -58,7 +58,7 @@ import { uppercase } from "@/utils/string";
 import type { ComponentProps, ReactNode } from "react";
 import type { SelectedKeyframeRef, ElementKeyframe } from "@/types/animation";
 import { cn } from "@/utils/ui";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, } from "react";
 import { Button } from "@/components/ui/button";
 import { usePropertiesStore } from "@/stores/properties-store";
 

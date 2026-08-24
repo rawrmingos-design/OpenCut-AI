@@ -10,7 +10,6 @@ import {
 	type CopilotStep,
 	type CopilotStepStatus,
 } from "@/lib/copilot/copilot-types";
-import { generateUUID } from "@/utils/id";
 import { toast } from "sonner";
 
 function buildProjectContext(editor: ReturnType<typeof useEditor>) {

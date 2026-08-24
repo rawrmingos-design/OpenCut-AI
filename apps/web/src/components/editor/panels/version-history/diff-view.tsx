@@ -5,12 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useEditor } from "@/hooks/use-editor";
 import { useVersionStore } from "@/stores/version-store";
-import { ChangeSummary } from "./change-summary";
 import { groupChangesByCategory } from "@/services/diff/project-diff";
 import type {
 	TimelineDiff,
 	ChangeCategory,
-	Commit,
 } from "@/types/version";
 
 const CATEGORY_LABELS: Record<ChangeCategory, string> = {

@@ -3,11 +3,10 @@
 import type { ExportOptions, ExportResult } from "@/types/export";
 import type { EditorCore } from "@/core";
 import { invoke } from "@tauri-apps/api/core";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { listen, } from "@tauri-apps/api/event";
 import { tempDir, join } from "@tauri-apps/api/path";
 import { save } from "@tauri-apps/plugin-dialog";
 import { mkdir, remove, writeFile } from "@tauri-apps/plugin-fs";
-import { qualityMap } from "./scene-exporter";
 
 interface RenderProgress {
 	frame: number;
@@ -119,7 +118,7 @@ export async function exportDesktopProject({
 		const appTemp = await join(tDir, "opencut-ai-render");
 		try {
 			await mkdir(appTemp, { recursive: true });
-		} catch (e) {
+		} catch (_e) {
 			// ignore if exists
 		}
 
@@ -148,11 +147,11 @@ export async function exportDesktopProject({
 			onProgress?.({ progress: 0.2 + p.percent * 0.79 });
 		});
 
-		let isCanceled = false;
+		let _isCanceled = false;
 		const cancelCheck = setInterval(() => {
 			const exportState = editor.project.getExportState();
 			if (exportState.isExporting && exportState.result?.cancelled === true) {
-				isCanceled = true;
+				_isCanceled = true;
 				invoke("cancel_render");
 				clearInterval(cancelCheck);
 			}

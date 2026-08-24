@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { useEditor } from "@/hooks/use-editor";
 import { useBackgroundTasksStore } from "@/stores/background-tasks-store";
-import { AUTO_CORRECT_PROFILES, type ColorCorrectionProfile } from "@/lib/color/auto-color-profiles";
+import { AUTO_CORRECT_PROFILES, } from "@/lib/color/auto-color-profiles";
 import { toast } from "sonner";
 
 export function useAutoColorCorrection() {

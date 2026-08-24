@@ -403,7 +403,7 @@ function AnalyticsTab({
 								{(["A", "B", "C", "D", "F"] as const).map((g) => {
 									const count = analytics.grade_distribution[g] ?? 0;
 									const total = Object.values(analytics.grade_distribution).reduce((a, b) => a + b, 0);
-									const pct = total > 0 ? (count / total) * 100 : 0;
+									const _pct = total > 0 ? (count / total) * 100 : 0;
 									return (
 										<div key={g} className={cn("flex-1 rounded border p-1 text-center", GRADE_BG[g])}>
 											<div className={cn("text-[10px] font-bold", GRADE_COLORS[g]?.split(" ")[0])}>{g}</div>
