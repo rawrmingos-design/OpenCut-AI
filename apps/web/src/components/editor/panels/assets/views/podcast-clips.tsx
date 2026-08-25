@@ -62,6 +62,8 @@ export function PodcastClipsView() {
 	const [clips, setClips] = useState<ClipCandidate[]>([]);
 	const [isFindingClips, setIsFindingClips] = useState(false);
 	const activeClipTaskId = useRef<string | null>(null);
+	// SCRUM-78: backend job id for the in-flight find-clips request.
+	const activeClipJobIdRef = useRef<string | null>(null);
 	const [isApplying, setIsApplying] = useState(false);
 
 	// Subtitle style
@@ -236,13 +238,20 @@ export function PodcastClipsView() {
 
 		const startFindClips = (controller: AbortController, taskId: string) => {
 			activeClipTaskId.current = taskId;
+			activeClipJobIdRef.current = null;
 			setIsFindingClips(true);
 			bgTasks.addTask({
 				id: taskId,
 				type: "clip-finder",
 				label: "Find best clips",
-				progress: "Analyzing transcript with AI...",
-				cancel: () => controller.abort(),
+				progress: "Preparing analysis...",
+				// SCRUM-78: Cancel also cancels the server-side LLM job so
+				// CPU-bound Ollama work stops even after the fetch aborts.
+				cancel: () => {
+					controller.abort();
+					const jobId = activeClipJobIdRef.current;
+					if (jobId) void aiClient.cancelLLMJob(jobId).catch(() => {});
+				},
 				retry: () =>
 					startFindClips(
 						new AbortController(),
@@ -283,10 +292,36 @@ export function PodcastClipsView() {
 					}
 
 					if (controller.signal.aborted) return;
+					// SCRUM-78: surface queue position and lifecycle state from
+					// backend job frames instead of a static spinner label.
+					const applyJobUpdate = (job: {
+						jobId?: string;
+						state?: string;
+						queuePosition?: number;
+					}) => {
+						// A late frame from a cancelled run must not overwrite the
+						// backend job id owned by a newer retry.
+						if (activeClipTaskId.current !== taskId) return;
+						if (job.jobId) activeClipJobIdRef.current = job.jobId;
+						let progressText: string | null = null;
+						if (job.state === "queued") {
+							progressText =
+								job.queuePosition && job.queuePosition > 0
+									? `Queued (position ${job.queuePosition})...`
+									: "Queued...";
+						} else if (job.state === "running") {
+							progressText = "Analyzing transcript with AI...";
+						} else if (job.state === "finalizing") {
+							progressText = "Finalizing clips...";
+						}
+						if (progressText) bgTasks.updateTask(taskId, { progress: progressText });
+					};
 					const result = await aiClient.findClips(segments, {
 						energyCurve,
 						signal: controller.signal,
+						onJobUpdate: applyJobUpdate,
 					});
+					activeClipJobIdRef.current = null;
 
 					// A cancelled task must not accept late results.
 					if (controller.signal.aborted) return;

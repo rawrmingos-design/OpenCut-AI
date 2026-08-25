@@ -332,6 +332,8 @@ class AIClient {
 		endpoint: string,
 		options: RequestInit = {},
 		timeoutMs: number = LLM_TIMEOUT_MS,
+		onJobId?: (jobId: string) => void,
+		onJobUpdate?: (job: { jobId?: string; state?: string; queuePosition?: number }) => void,
 	): Promise<T> {
 		const url = `${this.baseUrl}${endpoint}`;
 		const controller = new AbortController();
@@ -385,12 +387,19 @@ class AIClient {
 			const handleLine = (rawLine: string): T | undefined => {
 				const line = rawLine.trim();
 				if (!line) return undefined;
-				let data: { ping?: boolean; result?: T; error?: string };
+				let data: {
+					ping?: boolean;
+					result?: T;
+					error?: string;
+					job?: { jobId?: string; state?: string; queuePosition?: number };
+				};
 				try {
 					data = JSON.parse(line);
 				} catch {
 					return undefined;
 				}
+				if (data.job?.jobId) onJobId?.(data.job.jobId);
+				if (data.job) onJobUpdate?.(data.job);
 				if (data.ping) return undefined;
 				if (data.error) throw new AIClientError(data.error, "backend_error");
 				if (data.result !== undefined) return data.result;
@@ -1432,6 +1441,14 @@ class AIClient {
 			signal?: AbortSignal;
 			/** SCRUM-77: per-request timeout override (tests use a short one). */
 			timeoutMs?: number;
+			/** SCRUM-78: receives the backend job id from lifecycle frames. */
+			onJobId?: (jobId: string) => void;
+			/** SCRUM-78: receives queued/running/finalizing state frames. */
+			onJobUpdate?: (job: {
+				jobId?: string;
+				state?: string;
+				queuePosition?: number;
+			}) => void;
 		},
 	): Promise<FindClipsResult> {
 		return this.requestWithKeepalive<FindClipsResult>(
@@ -1451,6 +1468,15 @@ class AIClient {
 				}),
 			},
 			options?.timeoutMs,
+			options?.onJobId,
+			options?.onJobUpdate,
+		);
+	}
+
+	async cancelLLMJob(jobId: string): Promise<{ state: string; jobId: string }> {
+		return this.request<{ state: string; jobId: string }>(
+			`/api/llm-jobs/${encodeURIComponent(jobId)}/cancel`,
+			{ method: "POST" },
 		);
 	}
 

@@ -26,7 +26,7 @@ from app.services.clip_signals import (
     speech_density_wps,
 )
 from app.services.model_backend import llm_backend
-from app.services.stream_utils import streamed_llm_response
+from app.services.stream_utils import streamed_llm_job, streamed_llm_response
 
 logger = logging.getLogger(__name__)
 
@@ -261,7 +261,7 @@ Sort by score descending. Only include clips scoring 50 or above."""
             "ranking_comparison": ranking_comparison,
         }
 
-    return streamed_llm_response(_work, error_detail="Clip finding failed.")
+    return streamed_llm_job("find-clips", _work, error_detail="Clip finding failed.")
 
 
 @router.post("/keywords")

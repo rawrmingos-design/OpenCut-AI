@@ -27,6 +27,14 @@ class Settings(BaseSettings):
     OLLAMA_DEFAULT_MODEL: str = "llama3.2:1b"
     OLLAMA_TIMEOUT: int = 300
 
+    # SCRUM-78: centralized LLM job controls shared by every analysis endpoint.
+    # LLM_QUEUE_CONCURRENCY caps parallel Ollama inference (CPU box = 1);
+    # overflow requests queue with visible position instead of racing.
+    # LLM_JOB_TIMEOUT is the server-side wall-clock budget per job — the
+    # single knob all streamed analysis endpoints share.
+    LLM_QUEUE_CONCURRENCY: int = 1
+    LLM_JOB_TIMEOUT: int = OLLAMA_TIMEOUT
+
     # AI Memory Budget & Model Tiers
     AI_MEMORY_BUDGET: str = "auto"  # "auto", "4GB", "8GB", "16GB", "32GB"
     AI_MODEL_TIER: str = "auto"  # "lite", "standard", "pro", "auto"

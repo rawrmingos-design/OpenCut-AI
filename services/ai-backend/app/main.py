@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.config import settings
-from app.routes import analyze, audio, background, broll, command, dub, engagement, export, factcheck, generate, llm, media, podcast, sarvam, search, setup, smallest, template, transcribe, transcribe_ws, translate, tts, turboquant, video, youtube
+from app.routes import analyze, audio, background, broll, command, dub, engagement, export, factcheck, generate, jobs, llm, media, podcast, sarvam, search, setup, smallest, template, transcribe, transcribe_ws, translate, tts, turboquant, video, youtube
 
 class JSONFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
@@ -134,6 +134,7 @@ app.mount("/generated", StaticFiles(directory=settings.GENERATED_DIR), name="gen
 app.include_router(transcribe.router)
 app.include_router(transcribe_ws.router)
 app.include_router(llm.router)
+app.include_router(jobs.router)
 app.include_router(command.router)
 app.include_router(analyze.router)
 app.include_router(tts.router)
