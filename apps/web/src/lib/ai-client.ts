@@ -369,34 +369,45 @@ class AIClient {
 
 		const reader = response.body.getReader();
 		const decoder = new TextDecoder();
+		let buffer = "";
+
+		// NDJSON lines can straddle transport chunk boundaries; only parse
+		// complete lines and keep the trailing partial buffered.
+		const handleLine = (rawLine: string): T | undefined => {
+			const line = rawLine.trim();
+			if (!line) return undefined;
+			let data: { ping?: boolean; result?: T; error?: string };
+			try {
+				data = JSON.parse(line);
+			} catch {
+				return undefined; // ignore malformed fragments
+			}
+			if (data.ping) return undefined;
+			if (data.error) {
+				throw new AIClientError(data.error, "backend_error");
+			}
+			if (data.result !== undefined) return data.result;
+			return undefined;
+		};
 
 		try {
 			while (true) {
 				const { done, value } = await reader.read();
 				if (done) break;
 
-				const chunk = decoder.decode(value, { stream: true });
-				const lines = chunk.split("\n").filter(Boolean);
+				buffer += decoder.decode(value, { stream: true });
+				const lines = buffer.split("\n");
+				buffer = lines.pop() ?? "";
 
 				for (const line of lines) {
-					try {
-						const data = JSON.parse(line) as {
-							ping?: boolean;
-							result?: T;
-							error?: string;
-						};
-						if (data.ping) continue;
-						if (data.error) {
-							throw new AIClientError(data.error, "backend_error");
-						}
-						if (data.result !== undefined) {
-							return data.result;
-						}
-					} catch (e) {
-						if (e instanceof AIClientError) throw e;
-					}
+					const result = handleLine(line);
+					if (result !== undefined) return result;
 				}
 			}
+
+			// Flush any final line that lacked a trailing newline.
+			const tailResult = handleLine(buffer);
+			if (tailResult !== undefined) return tailResult;
 		} finally {
 			reader.releaseLock();
 		}

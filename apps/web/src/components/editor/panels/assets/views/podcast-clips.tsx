@@ -261,7 +261,17 @@ export function PodcastClipsView() {
 					: null;
 				if (asset?.file) {
 					const { extractEnergyCurve } = await import("@/lib/audio-energy");
-					energyCurve = await extractEnergyCurve(asset.file);
+					// Chromium can leave decodeAudioData pending for a media
+					// container it cannot decode (notably headless MP4). Audio
+					// energy is optional, so never block clip finding on it.
+					const extraction = extractEnergyCurve(asset.file);
+					const timeout = new Promise<never>((_, reject) => {
+						window.setTimeout(
+							() => reject(new Error("Audio energy decode timed out")),
+						15_000,
+						);
+					});
+					energyCurve = await Promise.race([extraction, timeout]);
 				}
 			} catch {
 				energyCurve = undefined;
