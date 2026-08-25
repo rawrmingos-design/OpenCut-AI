@@ -304,6 +304,84 @@ try {
 		{ timeout: 90000 },
 	);
 	record("ai-failure-visible-error", true, "error surfaced in UI");
+
+	// ── Scenario 3: cancelling a hung Find Clips run lands in a terminal
+	// cancelled state and clears every spinner (no zombie task). Reuse the
+	// happy-path page so Whisper is exercised only once per suite.
+	const page3 = page;
+	await page3.unroute("**/api/analyze/find-clips");
+	// A route handler that never resolves leaves the request pending
+	// in-flight, simulating a wedged backend.
+	await page3.route("**/api/analyze/find-clips", () => {});
+	const audioTab3 = page3.locator('button[aria-label="Audio"]');
+	await audioTab3.click();
+	const pod3 = page3
+		.locator("button, [role=tab]")
+		.filter({ hasText: /^Podcast$/ })
+		.first();
+	await pod3.waitFor({ state: "visible", timeout: 10000 });
+	await pod3.click();
+	const findBtn3 = page3
+		.getByRole("button", { name: /^(Find best clips|Re-scan for clips)$/ })
+		.first();
+	await findBtn3.waitFor({ state: "visible", timeout: 10000 });
+	await findBtn3.click();
+	const widget3 = page3.locator(".fixed.bottom-4.right-4");
+	await widget3
+		.getByText("Find best clips")
+		.first()
+		.waitFor({ timeout: 15000 });
+	await widget3
+		.getByRole("button", { name: "Cancel", exact: true })
+		.first()
+		.click();
+	await page3.waitForFunction(
+		() => {
+			const t = document.body.innerText;
+			return (
+				/find best clips/i.test(t) &&
+				/cancelled/i.test(t) &&
+				document.querySelectorAll('[class*="animate-spin"]').length === 0
+			);
+		},
+		null,
+		{ timeout: 20000 },
+	);
+	record("findclips-cancel-terminal", true, "task cancelled, spinners cleared");
+
+	// ── Scenario 4: a broken NDJSON stream (pings only, no result) must land
+	// the task in a terminal failed state offering Retry; retrying re-runs. ──
+	await page3.route("**/api/analyze/find-clips", (route) =>
+		route.fulfill({
+			status: 200,
+			contentType: "application/x-ndjson",
+			body: '{"ping": true}\n',
+		}),
+	);
+	await findBtn3.click();
+	await page3.waitForFunction(
+		() => /stream ended without result/i.test(document.body.innerText),
+		null,
+		{ timeout: 30000 },
+	);
+	const retryBtn = page3
+		.locator(".fixed.bottom-4.right-4")
+		.getByRole("button", { name: "Retry", exact: true })
+		.first();
+	await retryBtn.waitFor({ state: "visible", timeout: 10000 });
+	await retryBtn.click();
+	await page3.waitForFunction(
+		() =>
+			/stream ended without result/i.test(document.body.innerText) &&
+			document.querySelectorAll('[class*="animate-spin"]').length === 0,
+		null,
+		{ timeout: 30000 },
+	);
+	record(
+		"findclips-stream-failure-retry",
+		true,
+		"terminal failed state + retry reruns op",
+	);
 } catch (err) {
 	record("fatal", false, err instanceof Error ? err.message : String(err));
 	try {

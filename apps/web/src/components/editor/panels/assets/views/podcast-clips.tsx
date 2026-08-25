@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { PanelView } from "@/components/editor/panels/assets/views/base-view";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -61,6 +61,7 @@ export function PodcastClipsView() {
 	// Clip finder state
 	const [clips, setClips] = useState<ClipCandidate[]>([]);
 	const [isFindingClips, setIsFindingClips] = useState(false);
+	const activeClipTaskId = useRef<string | null>(null);
 	const [isApplying, setIsApplying] = useState(false);
 
 	// Subtitle style
@@ -230,115 +231,134 @@ export function PodcastClipsView() {
 	}, [editor, bgTasks, speakerPositions]);
 
 	// ── Find Best Clips (background task) ──
-	const handleFindClips = useCallback(async () => {
+	const handleFindClips = useCallback(() => {
 		if (!hasTranscript) return;
 
-		const taskId = `clip-finder-${Date.now()}`;
-		setIsFindingClips(true);
-
-		bgTasks.addTask({
-			id: taskId,
-			type: "clip-finder",
-			label: "Find best clips",
-			progress: "Analyzing transcript with AI...",
-		});
-
-		try {
-			// SCRUM-75: decode audio energy client-side (WebAudio) so the
-			// backend can blend real RMS signal into the ranking. Best-effort:
-			// decode failure just means the energy signal is reported missing.
-			let energyCurve: number[] | undefined;
-			try {
-				const sourceElement = editor.timeline
-					.getTracks()
-					.flatMap((track) => track.elements as TimelineElement[])
-					.find((element) => hasMediaId(element));
-				const mediaId = sourceElement && hasMediaId(sourceElement)
-					? sourceElement.mediaId
-					: null;
-				const asset = mediaId
-					? editor.media.getAssets().find((a) => a.id === mediaId)
-					: null;
-				if (asset?.file) {
-					const { extractEnergyCurve } = await import("@/lib/audio-energy");
-					// Chromium can leave decodeAudioData pending for a media
-					// container it cannot decode (notably headless MP4). Audio
-					// energy is optional, so never block clip finding on it.
-					const extraction = extractEnergyCurve(asset.file);
-					const timeout = new Promise<never>((_, reject) => {
-						window.setTimeout(
-							() => reject(new Error("Audio energy decode timed out")),
-						15_000,
-						);
-					});
-					energyCurve = await Promise.race([extraction, timeout]);
-				}
-			} catch {
-				energyCurve = undefined;
-			}
-
-			const result = await aiClient.findClips(segments, { energyCurve });
-			setClips(result.clips);
-
-			// Resolve one source media file for lazy gallery thumbnails.
-			const sourceElement = editor.timeline
-				.getTracks()
-				.flatMap((track) => track.elements as TimelineElement[])
-				.find((element) => hasMediaId(element));
-			const sourceMediaId =
-				sourceElement && hasMediaId(sourceElement)
-					? sourceElement.mediaId
-					: null;
-			const sourceAsset = sourceMediaId
-				? editor.media.getAssets().find((asset) => asset.id === sourceMediaId)
-				: null;
-			setGalleryAsset(
-				sourceAsset?.file && sourceMediaId
-					? { id: sourceMediaId, file: sourceAsset.file }
-					: null,
-			);
-			// SCRUM-76: clamp scrubber windows to the real media duration.
-			const assetDuration = (sourceAsset as { duration?: number } | undefined)
-				?.duration;
-			if (typeof assetDuration === "number" && assetDuration > 0) {
-				setMediaTotalDuration(assetDuration);
-			} else {
-				const maxSegEnd = segments.reduce(
-					(max, seg) => Math.max(max, seg.end),
-					0,
-				);
-				setMediaTotalDuration(maxSegEnd > 0 ? maxSegEnd : null);
-			}
-
-			if (result.clips.length === 0) {
-				bgTasks.updateTask(taskId, {
-					status: "completed",
-					progress: "No high-scoring clips found",
-					completedAt: Date.now(),
-				});
-			} else {
-				bgTasks.updateTask(taskId, {
-					status: "completed",
-					progress: `${result.clips.length} clips found`,
-					completedAt: Date.now(),
-				});
-			}
-		} catch (err) {
-			const message = err instanceof Error ? err.message : "Failed to find clips";
-			const detail = message.includes("Cannot connect") || message.includes("connection_refused")
-				? "Cannot connect to AI backend. Make sure it is running with Ollama (docker compose up -d)."
-				: message.includes("503")
-					? "Ollama LLM is not available. Start it with: docker compose up -d ollama"
-					: message;
-			bgTasks.updateTask(taskId, {
-				status: "error",
-				error: detail,
-				completedAt: Date.now(),
+		const startFindClips = (controller: AbortController, taskId: string) => {
+			activeClipTaskId.current = taskId;
+			setIsFindingClips(true);
+			bgTasks.addTask({
+				id: taskId,
+				type: "clip-finder",
+				label: "Find best clips",
+				progress: "Analyzing transcript with AI...",
+				cancel: () => controller.abort(),
+				retry: () =>
+					startFindClips(
+						new AbortController(),
+						`clip-finder-${Date.now()}`,
+					),
 			});
-		} finally {
-			setIsFindingClips(false);
-		}
-	}, [segments, hasTranscript, bgTasks]);
+
+			void (async () => {
+				try {
+					// SCRUM-75: decode audio energy client-side (WebAudio) so the
+					// backend can blend real RMS signal into the ranking. Best-effort:
+					// decode failure just means the energy signal is reported missing.
+					let energyCurve: number[] | undefined;
+					try {
+						const sourceElement = editor.timeline
+							.getTracks()
+							.flatMap((track) => track.elements as TimelineElement[])
+							.find((element) => hasMediaId(element));
+						const mediaId = sourceElement && hasMediaId(sourceElement)
+							? sourceElement.mediaId
+							: null;
+						const asset = mediaId
+							? editor.media.getAssets().find((a) => a.id === mediaId)
+							: null;
+						if (asset?.file) {
+							const { extractEnergyCurve } = await import("@/lib/audio-energy");
+							const extraction = extractEnergyCurve(asset.file);
+							const timeout = new Promise<never>((_, reject) => {
+								window.setTimeout(
+									() => reject(new Error("Audio energy decode timed out")),
+									15_000,
+								);
+							});
+							energyCurve = await Promise.race([extraction, timeout]);
+						}
+					} catch {
+						energyCurve = undefined;
+					}
+
+					if (controller.signal.aborted) return;
+					const result = await aiClient.findClips(segments, {
+						energyCurve,
+						signal: controller.signal,
+					});
+
+					// A cancelled task must not accept late results.
+					if (controller.signal.aborted) return;
+					setClips(result.clips);
+
+					// Resolve one source media file for lazy gallery thumbnails.
+					const sourceElement = editor.timeline
+						.getTracks()
+						.flatMap((track) => track.elements as TimelineElement[])
+						.find((element) => hasMediaId(element));
+					const sourceMediaId = sourceElement && hasMediaId(sourceElement)
+						? sourceElement.mediaId
+						: null;
+					const sourceAsset = sourceMediaId
+						? editor.media.getAssets().find((asset) => asset.id === sourceMediaId)
+						: null;
+					setGalleryAsset(
+						sourceAsset?.file && sourceMediaId
+							? { id: sourceMediaId, file: sourceAsset.file }
+							: null,
+					);
+
+					const assetDuration = (sourceAsset as { duration?: number } | undefined)
+						?.duration;
+					if (typeof assetDuration === "number" && assetDuration > 0) {
+						setMediaTotalDuration(assetDuration);
+					} else {
+						const maxSegEnd = segments.reduce(
+							(max, seg) => Math.max(max, seg.end),
+							0,
+						);
+						setMediaTotalDuration(maxSegEnd > 0 ? maxSegEnd : null);
+					}
+
+					bgTasks.updateTask(taskId, {
+						status: "completed",
+						progress:
+							result.clips.length === 0
+								? "No high-scoring clips found"
+								: `${result.clips.length} clips found`,
+						completedAt: Date.now(),
+					});
+				} catch (err) {
+					if (controller.signal.aborted) return;
+
+					const message =
+						err instanceof Error ? err.message : "Failed to find clips";
+					const detail = message.includes("Cannot connect") || message.includes("connection_refused")
+						? "Cannot connect to AI backend. Make sure it is running with Ollama (docker compose up -d)."
+						: message.includes("503")
+							? "Ollama LLM is not available. Start it with: docker compose up -d ollama"
+							: message;
+					bgTasks.updateTask(taskId, {
+						status: "failed",
+						error: detail,
+						completedAt: Date.now(),
+					});
+				} finally {
+					// SCRUM-77: only clear the spinner when THIS task still owns the
+					// panel — a retry already started a newer run with its own task.
+					if (activeClipTaskId.current === taskId) {
+						setIsFindingClips(false);
+					}
+				}
+			})();
+		};
+
+		startFindClips(
+			new AbortController(),
+			`clip-finder-${Date.now()}`,
+		);
+	}, [segments, hasTranscript, editor, bgTasks]);
 
 	// ── Preview Clip (seek to time) ──
 	const handlePreviewClip = useCallback(

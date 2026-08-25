@@ -12,6 +12,7 @@ import {
 	AlertCircleIcon,
 } from "@hugeicons/core-free-icons";
 import {
+	isBackgroundTaskActive,
 	useBackgroundTasksStore,
 	type BackgroundTask,
 } from "@/stores/background-tasks-store";
@@ -25,13 +26,15 @@ function formatElapsed(startedAt: number, completedAt?: number): string {
 }
 
 function TaskRow({ task }: { task: BackgroundTask }) {
+	const cancelTask = useBackgroundTasksStore((s) => s.cancelTask);
+	const retryTask = useBackgroundTasksStore((s) => s.retryTask);
 	const removeTask = useBackgroundTasksStore((s) => s.removeTask);
 	const [elapsed, setElapsed] = useState(
 		formatElapsed(task.startedAt, task.completedAt),
 	);
 
 	useEffect(() => {
-		if (task.status !== "running") return;
+		if (!isBackgroundTaskActive(task.status)) return;
 		const timer = setInterval(
 			() => setElapsed(formatElapsed(task.startedAt)),
 			1000,
@@ -39,19 +42,27 @@ function TaskRow({ task }: { task: BackgroundTask }) {
 		return () => clearInterval(timer);
 	}, [task.status, task.startedAt]);
 
+	const isActive = isBackgroundTaskActive(task.status);
+
 	return (
 		<div className="flex items-center gap-2 px-3 py-2">
-			{task.status === "running" && <Spinner className="size-3 shrink-0" />}
+			{isActive && <Spinner className="size-3 shrink-0" />}
 			{task.status === "completed" && (
 				<HugeiconsIcon
 					icon={Tick01Icon}
 					className="size-3.5 text-green-500 shrink-0"
 				/>
 			)}
-			{task.status === "error" && (
+			{(task.status === "error" || task.status === "failed") && (
 				<HugeiconsIcon
 					icon={AlertCircleIcon}
 					className="size-3.5 text-red-500 shrink-0"
+				/>
+			)}
+			{task.status === "cancelled" && (
+				<HugeiconsIcon
+					icon={Cancel01Icon}
+					className="size-3.5 text-muted-foreground shrink-0"
 				/>
 			)}
 
@@ -64,19 +75,45 @@ function TaskRow({ task }: { task: BackgroundTask }) {
 						{elapsed}
 					</span>
 				</div>
-				{task.status === "running" && task.progress && (
+				{isActive && task.progress && (
 					<p className="text-[10px] text-muted-foreground truncate">
 						{task.progress}
 					</p>
 				)}
-				{task.status === "error" && task.error && (
+				{(task.status === "error" || task.status === "failed") && task.error && (
 					<p className="text-[10px] text-red-400 truncate">
 						{task.error}
 					</p>
 				)}
+				{task.status === "cancelled" && (
+					<p className="text-[10px] text-muted-foreground truncate">
+						Cancelled
+					</p>
+				)}
 			</div>
 
-			{task.status !== "running" && (
+			{/* SCRUM-77: cancel running tasks, retry failed/cancelled ones */}
+			{isActive && (
+				<Button
+					variant="ghost"
+					size="sm"
+					className="h-5 px-1.5 text-[10px] text-muted-foreground shrink-0"
+					onClick={() => cancelTask(task.id)}
+				>
+					Cancel
+				</Button>
+			)}
+			{(task.status === "failed" || task.status === "error") && task.retry && (
+				<Button
+					variant="ghost"
+					size="sm"
+					className="h-5 px-1.5 text-[10px] text-primary shrink-0"
+					onClick={() => retryTask(task.id)}
+				>
+					Retry
+				</Button>
+			)}
+			{!isActive && (
 				<Button
 					variant="ghost"
 					size="icon"
@@ -98,8 +135,10 @@ export function BackgroundTasksWidget() {
 
 	if (tasks.length === 0) return null;
 
-	const runningCount = tasks.filter((t) => t.status === "running").length;
-	const hasCompleted = tasks.some((t) => t.status !== "running");
+	const runningCount = tasks.filter((t) =>
+		isBackgroundTaskActive(t.status),
+	).length;
+	const hasCompleted = tasks.some((t) => !isBackgroundTaskActive(t.status));
 
 	return (
 		<div className="fixed bottom-4 right-4 z-50 w-72 rounded-lg border bg-background shadow-lg overflow-hidden">
@@ -148,8 +187,10 @@ export function BackgroundTasksWidget() {
 					{[...tasks]
 						.sort((a, b) => {
 							// Running tasks first
-							if (a.status === "running" && b.status !== "running") return -1;
-							if (a.status !== "running" && b.status === "running") return 1;
+							const aActive = isBackgroundTaskActive(a.status);
+							const bActive = isBackgroundTaskActive(b.status);
+							if (aActive && !bActive) return -1;
+							if (!aActive && bActive) return 1;
 							// Within same status group, newest first
 							return b.startedAt - a.startedAt;
 						})

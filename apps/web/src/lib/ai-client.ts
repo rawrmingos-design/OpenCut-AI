@@ -86,10 +86,17 @@ function classifyError(error: unknown): { message: string; errorType: AIErrorTyp
 	}
 
 	if (error instanceof DOMException && error.name === "AbortError") {
-		return {
-			message: "Request timed out. The AI backend may be overloaded or starting up.",
-			errorType: "timeout",
-		};
+		// SCRUM-77: an external caller aborting its own signal is a user
+		// cancellation, not a timeout. The internal timeout controller is
+		// indistinguishable at this point, so callers that never pass a
+		// signal keep the historical "timed out" message.
+		const cancelled = (error as DOMException & { external?: boolean }).external === true;
+		return cancelled
+			? { message: "Request cancelled.", errorType: "cancelled" }
+			: {
+					message: "Request timed out. The AI backend may be overloaded or starting up.",
+					errorType: "timeout",
+				};
 	}
 
 	if (error instanceof TypeError && error.message.includes("fetch")) {
@@ -324,14 +331,26 @@ class AIClient {
 	private async requestWithKeepalive<T>(
 		endpoint: string,
 		options: RequestInit = {},
+		timeoutMs: number = LLM_TIMEOUT_MS,
 	): Promise<T> {
 		const url = `${this.baseUrl}${endpoint}`;
 		const controller = new AbortController();
-		const timeoutId = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
+		const externalSignal = options.signal;
+		let timedOut = false;
+		const timeoutId = setTimeout(() => {
+			timedOut = true;
+			controller.abort();
+		}, timeoutMs);
+		const onExternalAbort = () => controller.abort();
 
-		let response: Response;
+		if (externalSignal?.aborted) {
+			clearTimeout(timeoutId);
+			throw new AIClientError("Request cancelled.", "cancelled");
+		}
+		externalSignal?.addEventListener("abort", onExternalAbort, { once: true });
+
 		try {
-			response = await fetch(url, {
+			const response = await fetch(url, {
 				...options,
 				signal: controller.signal,
 				headers: {
@@ -339,80 +358,83 @@ class AIClient {
 					...options.headers,
 				},
 			});
+
+			if (!response.ok) {
+				const errorBody = await response.text().catch(() => "Unknown error");
+				throw new AIClientError(
+					`AI Backend error (${response.status}): ${errorBody}`,
+					response.status >= 500 ? "backend_error" : "network_error",
+					response.status,
+				);
+			}
+
+			// Check content type — if it's regular JSON, the backend is old (no streaming).
+			const contentType = response.headers.get("content-type") || "";
+			if (contentType.includes("application/json")) {
+				return (await response.json()) as T;
+			}
+
+			if (!response.body) {
+				throw new AIClientError("Empty response body", "backend_error");
+			}
+
+			const reader = response.body.getReader();
+			const decoder = new TextDecoder();
+			let buffer = "";
+
+			const handleLine = (rawLine: string): T | undefined => {
+				const line = rawLine.trim();
+				if (!line) return undefined;
+				let data: { ping?: boolean; result?: T; error?: string };
+				try {
+					data = JSON.parse(line);
+				} catch {
+					return undefined;
+				}
+				if (data.ping) return undefined;
+				if (data.error) throw new AIClientError(data.error, "backend_error");
+				if (data.result !== undefined) return data.result;
+				return undefined;
+			};
+
+			try {
+				while (true) {
+					const { done, value } = await reader.read();
+					if (done) break;
+
+					buffer += decoder.decode(value, { stream: true });
+					const lines = buffer.split("\n");
+					buffer = lines.pop() ?? "";
+					for (const line of lines) {
+						const result = handleLine(line);
+						if (result !== undefined) return result;
+					}
+				}
+
+				const tailResult = handleLine(buffer);
+				if (tailResult !== undefined) return tailResult;
+			} finally {
+				reader.releaseLock();
+			}
+
+			throw new AIClientError("Stream ended without result", "backend_error");
 		} catch (error) {
-			clearTimeout(timeoutId);
 			if (error instanceof AIClientError) throw error;
+			if (externalSignal?.aborted) {
+				throw new AIClientError("Request cancelled.", "cancelled");
+			}
+			if (timedOut) {
+				throw new AIClientError(
+					"Request timed out. The AI backend may be overloaded or starting up.",
+					"timeout",
+				);
+			}
 			const classified = classifyError(error);
 			throw new AIClientError(classified.message, classified.errorType);
-		}
-		clearTimeout(timeoutId);
-
-		if (!response.ok) {
-			const errorBody = await response.text().catch(() => "Unknown error");
-			throw new AIClientError(
-				`AI Backend error (${response.status}): ${errorBody}`,
-				response.status >= 500 ? "backend_error" : "network_error",
-				response.status,
-			);
-		}
-
-		// Check content type — if it's regular JSON, the backend is old (no streaming)
-		const contentType = response.headers.get("content-type") || "";
-		if (contentType.includes("application/json")) {
-			return response.json() as Promise<T>;
-		}
-
-		// NDJSON streaming response with keepalives
-		if (!response.body) {
-			throw new AIClientError("Empty response body", "backend_error");
-		}
-
-		const reader = response.body.getReader();
-		const decoder = new TextDecoder();
-		let buffer = "";
-
-		// NDJSON lines can straddle transport chunk boundaries; only parse
-		// complete lines and keep the trailing partial buffered.
-		const handleLine = (rawLine: string): T | undefined => {
-			const line = rawLine.trim();
-			if (!line) return undefined;
-			let data: { ping?: boolean; result?: T; error?: string };
-			try {
-				data = JSON.parse(line);
-			} catch {
-				return undefined; // ignore malformed fragments
-			}
-			if (data.ping) return undefined;
-			if (data.error) {
-				throw new AIClientError(data.error, "backend_error");
-			}
-			if (data.result !== undefined) return data.result;
-			return undefined;
-		};
-
-		try {
-			while (true) {
-				const { done, value } = await reader.read();
-				if (done) break;
-
-				buffer += decoder.decode(value, { stream: true });
-				const lines = buffer.split("\n");
-				buffer = lines.pop() ?? "";
-
-				for (const line of lines) {
-					const result = handleLine(line);
-					if (result !== undefined) return result;
-				}
-			}
-
-			// Flush any final line that lacked a trailing newline.
-			const tailResult = handleLine(buffer);
-			if (tailResult !== undefined) return tailResult;
 		} finally {
-			reader.releaseLock();
+			clearTimeout(timeoutId);
+			externalSignal?.removeEventListener("abort", onExternalAbort);
 		}
-
-		throw new AIClientError("Stream ended without result", "backend_error");
 	}
 
 	/**
@@ -1406,21 +1428,30 @@ class AIClient {
 			/** SCRUM-75: 1s RMS curve (0–1) decoded client-side via WebAudio. */
 			energyCurve?: number[];
 			useComposite?: boolean;
+			/** SCRUM-77: external abort for task cancellation. */
+			signal?: AbortSignal;
+			/** SCRUM-77: per-request timeout override (tests use a short one). */
+			timeoutMs?: number;
 		},
 	): Promise<FindClipsResult> {
-		return this.requestWithKeepalive<FindClipsResult>("/api/analyze/find-clips", {
-			method: "POST",
-			body: JSON.stringify({
-				segments,
-				min_duration: options?.minDuration ?? 15,
-				max_duration: options?.maxDuration ?? 90,
-				max_clips: options?.maxClips ?? 10,
-				...(options?.energyCurve?.length
-					? { energy_curve: options.energyCurve.map((v) => Math.max(0, Math.min(1, v))) }
-					: {}),
-				...(options?.useComposite === false ? { use_composite: false } : {}),
-			}),
-		});
+		return this.requestWithKeepalive<FindClipsResult>(
+			"/api/analyze/find-clips",
+			{
+				method: "POST",
+				signal: options?.signal,
+				body: JSON.stringify({
+					segments,
+					min_duration: options?.minDuration ?? 15,
+					max_duration: options?.maxDuration ?? 90,
+					max_clips: options?.maxClips ?? 10,
+					...(options?.energyCurve?.length
+						? { energy_curve: options.energyCurve.map((v) => Math.max(0, Math.min(1, v))) }
+						: {}),
+					...(options?.useComposite === false ? { use_composite: false } : {}),
+				}),
+			},
+			options?.timeoutMs,
+		);
 	}
 
 	async extractKeywords(

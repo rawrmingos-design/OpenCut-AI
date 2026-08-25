@@ -99,4 +99,51 @@ describe("requestWithKeepalive NDJSON framing", () => {
 		const result = await aiClient.findClips(SEGMENTS);
 		expect(result.clips[0]?.id).toBe("plain");
 	});
+
+	test("aborts with a cancelled AIClientError when the external signal fires", async () => {
+		globalThis.fetch = ((_: RequestInfo | URL, init?: RequestInit) => {
+			const signal = init?.signal;
+			return new Promise<Response>((_, reject) => {
+				signal?.addEventListener(
+					"abort",
+					() => reject(new DOMException("The operation was aborted.", "AbortError")),
+					{ once: true },
+				);
+			});
+		}) as unknown as typeof fetch;
+
+		const controller = new AbortController();
+		const promise = aiClient.findClips(SEGMENTS, { signal: controller.signal });
+		controller.abort();
+
+		let caught: unknown;
+		try {
+			await promise;
+		} catch (error) {
+			caught = error;
+		}
+		expect(caught).toBeInstanceOf(AIClientError);
+		expect((caught as AIClientError).errorType).toBe("cancelled");
+		expect((caught as AIClientError).message).toContain("cancelled");
+	});
+
+	test("times out into a timeout AIClientError when nothing responds", async () => {
+		globalThis.fetch = ((_: RequestInfo | URL, init?: RequestInit) =>
+			new Promise<Response>((_, reject) => {
+				init?.signal?.addEventListener(
+					"abort",
+					() => reject(new DOMException("The operation was aborted.", "AbortError")),
+					{ once: true },
+				);
+			})) as unknown as typeof fetch;
+
+		let caught: unknown;
+		try {
+			await aiClient.findClips(SEGMENTS, { timeoutMs: 50 });
+		} catch (error) {
+			caught = error;
+		}
+		expect(caught).toBeInstanceOf(AIClientError);
+		expect((caught as AIClientError).errorType).toBe("timeout");
+	});
 });

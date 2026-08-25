@@ -1,7 +1,14 @@
 import { create } from "zustand";
 import { toast } from "sonner";
 
-export type BackgroundTaskStatus = "running" | "completed" | "error";
+export type BackgroundTaskStatus =
+	| "preparing"
+	| "running"
+	| "finalizing"
+	| "completed"
+	| "failed"
+	| "error"
+	| "cancelled";
 
 export interface BackgroundTask {
 	id: string;
@@ -27,6 +34,8 @@ export interface BackgroundTask {
 	startedAt: number;
 	completedAt?: number;
 	error?: string;
+	cancel?: () => void;
+	retry?: () => void;
 }
 
 interface BackgroundTasksState {
@@ -40,9 +49,25 @@ interface BackgroundTasksState {
 			Pick<BackgroundTask, "progress" | "status" | "error" | "completedAt">
 		>,
 	) => void;
+	cancelTask: (id: string) => void;
+	retryTask: (id: string) => void;
 	removeTask: (id: string) => void;
 	clearCompleted: () => void;
 	setMinimized: (minimized: boolean) => void;
+}
+
+export const ACTIVE_BACKGROUND_TASK_STATUSES: BackgroundTaskStatus[] = [
+	"preparing",
+	"running",
+	"finalizing",
+];
+
+export function isBackgroundTaskActive(status: BackgroundTaskStatus): boolean {
+	return ACTIVE_BACKGROUND_TASK_STATUSES.includes(status);
+}
+
+export function isBackgroundTaskTerminal(status: BackgroundTaskStatus): boolean {
+	return !isBackgroundTaskActive(status);
 }
 
 export const useBackgroundTasksStore = create<BackgroundTasksState>(
@@ -61,39 +86,52 @@ export const useBackgroundTasksStore = create<BackgroundTasksState>(
 		},
 
 		updateTask: (id, updates) => {
-			// Guard: don't re-notify if task is already in a terminal state
-			const existing = get().tasks.find((t) => t.id === id);
-			if (!existing) return;
-			const wasTerminal =
-				existing.status === "completed" || existing.status === "error";
+			const existing = get().tasks.find((task) => task.id === id);
+			if (!existing || isBackgroundTaskTerminal(existing.status)) return;
 
+			const next = { ...existing, ...updates };
 			set((state) => ({
-				tasks: state.tasks.map((t) => (t.id === id ? { ...t, ...updates } : t)),
+				tasks: state.tasks.map((task) => (task.id === id ? next : task)),
 			}));
 
-			// Only toast on the first transition to a terminal state
-			if (wasTerminal) return;
-
-			if (updates.status === "error" && updates.error) {
-				toast.error(`${existing.label} failed`, {
-					description: updates.error,
-				});
-			}
-
-			if (updates.status === "completed") {
+			if (updates.status === "failed" || updates.status === "error") {
+				if (updates.error) {
+					toast.error(`${existing.label} failed`, {
+						description: updates.error,
+					});
+				}
+			} else if (updates.status === "cancelled") {
+				toast.info(`${existing.label} cancelled`);
+			} else if (updates.status === "completed") {
 				toast.success(`${existing.label} completed`);
 			}
 		},
 
+		cancelTask: (id) => {
+			const existing = get().tasks.find((task) => task.id === id);
+			if (!existing || !isBackgroundTaskActive(existing.status)) return;
+			existing.cancel?.();
+			get().updateTask(id, {
+				status: "cancelled",
+				progress: "Cancelled",
+				completedAt: Date.now(),
+			});
+		},
+
+		retryTask: (id) => {
+			const retry = get().tasks.find((task) => task.id === id)?.retry;
+			retry?.();
+		},
+
 		removeTask: (id) => {
 			set((state) => ({
-				tasks: state.tasks.filter((t) => t.id !== id),
+				tasks: state.tasks.filter((task) => task.id !== id),
 			}));
 		},
 
 		clearCompleted: () => {
 			set((state) => ({
-				tasks: state.tasks.filter((t) => t.status === "running"),
+				tasks: state.tasks.filter((task) => isBackgroundTaskActive(task.status)),
 			}));
 		},
 

@@ -174,6 +174,7 @@ export type AIErrorType =
 	| "timeout"
 	| "backend_error"
 	| "network_error"
+	| "cancelled"
 	| "unknown";
 
 // Infographic types
