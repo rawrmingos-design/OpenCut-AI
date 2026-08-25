@@ -13,7 +13,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse, Response
 
 from app.config import settings
-from app.services.stream_utils import streamed_llm_response
+from app.services.stream_utils import streamed_llm_job
 from app.models.generation import EnhancePromptRequest, ImageGenParams, InfographicRequest
 from app.services.model_backend import llm_backend
 
@@ -92,7 +92,7 @@ async def enhance_prompt(request: EnhancePromptRequest):
             "style": request.style,
         }
 
-    return streamed_llm_response(_work, error_detail="Prompt enhancement failed.")
+    return streamed_llm_job("prompt-enhancement", _work, error_detail="Prompt enhancement failed.")
 
 
 @router.post("/infographic")

@@ -26,7 +26,7 @@ from app.services.clip_signals import (
     speech_density_wps,
 )
 from app.services.model_backend import llm_backend
-from app.services.stream_utils import streamed_llm_job, streamed_llm_response
+from app.services.stream_utils import streamed_llm_job
 
 logger = logging.getLogger(__name__)
 
@@ -319,7 +319,7 @@ Return 15-30 keywords maximum. Only include truly impactful words."""
 
         return {"keywords": validated}
 
-    return streamed_llm_response(_work, error_detail="Keyword extraction failed.")
+    return streamed_llm_job("keywords", _work, error_detail="Keyword extraction failed.")
 
 
 def _rule_based_keywords(segments: list[TranscriptSegment]) -> list[dict[str, str]]:
@@ -409,7 +409,7 @@ Choose themes:
 
         return {"cards": validated[:request.max_cards]}
 
-    return streamed_llm_response(_work, error_detail="Question card generation failed.")
+    return streamed_llm_job("question-cards", _work, error_detail="Question card generation failed.")
 
 
 # ── Speaker Diarization ────────────────────────────────────────────────

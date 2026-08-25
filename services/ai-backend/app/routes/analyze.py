@@ -17,7 +17,7 @@ from app.config import settings
 from app.services.audio_service import extract_audio
 from app.services.model_backend import llm_backend
 from app.services.silence_service import detect_silences
-from app.services.stream_utils import streamed_llm_response
+from app.services.stream_utils import streamed_llm_job
 
 logger = logging.getLogger(__name__)
 
@@ -209,7 +209,7 @@ async def analyze_structure(
             if os.path.exists(upload_path):
                 os.remove(upload_path)
 
-    return streamed_llm_response(_work, error_detail="Structure analysis failed.")
+    return streamed_llm_job("structure", _work, error_detail="Structure analysis failed.")
 
 
 @router.post("/suggestions")
@@ -268,7 +268,7 @@ async def smart_suggestions(
             if os.path.exists(upload_path):
                 os.remove(upload_path)
 
-    return streamed_llm_response(_work, error_detail="Suggestion generation failed.")
+    return streamed_llm_job("suggestions", _work, error_detail="Suggestion generation failed.")
 
 
 # ---------------------------------------------------------------------------
@@ -364,4 +364,4 @@ Rules:
             "totalSegments": len(request.segments),
         }
 
-    return streamed_llm_response(_work, error_detail="B-roll suggestion failed.")
+    return streamed_llm_job("broll-suggestions", _work, error_detail="B-roll suggestion failed.")

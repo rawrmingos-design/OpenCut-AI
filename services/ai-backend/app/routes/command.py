@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException
 
 from app.models.command import CommandRequest, CommandResponse, EditorAction
 from app.services.model_backend import llm_backend
-from app.services.stream_utils import streamed_llm_response
+from app.services.stream_utils import streamed_llm_job
 
 logger = logging.getLogger(__name__)
 
@@ -88,4 +88,4 @@ async def process_command(request: CommandRequest):
             "raw_response": json.dumps(data),
         }
 
-    return streamed_llm_response(_work, error_detail="Command processing failed.")
+    return streamed_llm_job("command", _work, error_detail="Command processing failed.")

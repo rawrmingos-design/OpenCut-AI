@@ -22,7 +22,7 @@ from app.services.engagement.scorer import engagement_scorer
 from app.services.engagement.hook_analyzer import hook_analyzer
 from app.services.engagement.hook_generator import HookGenerator
 from app.services.engagement.visual_enhancements import color_arc_generator, loop_detector
-from app.services.stream_utils import streamed_llm_response
+from app.services.stream_utils import streamed_llm_job
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,7 @@ async def score_clip(request: ScoreClipRequest):
         score = await engagement_scorer.score_clip(request)
         return score.to_response()
 
-    return streamed_llm_response(_work, error_detail="Engagement scoring failed.")
+    return streamed_llm_job("engagement-score", _work, error_detail="Engagement scoring failed.")
 
 
 @router.post("/score-video")
@@ -110,7 +110,7 @@ async def score_video(
             score = await engagement_scorer.score_clip(req)
             return score.to_response()
 
-        return streamed_llm_response(_work, error_detail="Video engagement scoring failed.")
+        return streamed_llm_job("engagement-score-video", _work, error_detail="Video engagement scoring failed.")
 
     except HTTPException:
         raise
@@ -150,7 +150,7 @@ async def score_batch(request: ScoreBatchRequest):
         scores = await engagement_scorer.score_batch(request.clips)
         return {"scores": [s.to_response() for s in scores]}
 
-    return streamed_llm_response(_work, error_detail="Batch scoring failed.")
+    return streamed_llm_job("engagement-score-batch", _work, error_detail="Batch scoring failed.")
 
 
 # ── Hook analysis ────────────────────────────────────────────────────
@@ -180,7 +180,7 @@ async def analyze_hook(request: HookAnalysisRequest):
         )
         return result.model_dump()
 
-    return streamed_llm_response(_work, error_detail="Hook analysis failed.")
+    return streamed_llm_job("engagement-analyze-hook", _work, error_detail="Hook analysis failed.")
 
 
 # ── Beat analysis ────────────────────────────────────────────────────
@@ -272,7 +272,7 @@ async def enhance_clip(request: EnhanceRequest):
 
         return {"enhancements_applied": request.enhancements, "results": results}
 
-    return streamed_llm_response(_work, error_detail="Enhancement failed.")
+    return streamed_llm_job("engagement-enhance", _work, error_detail="Enhancement failed.")
 
 
 # ── Loop detection ───────────────────────────────────────────────────
@@ -458,7 +458,7 @@ async def generate_hook_variants(request: HookVariantRequest):
             "total": len(variants),
         }
 
-    return streamed_llm_response(_work, error_detail="Hook variant generation failed.")
+    return streamed_llm_job("engagement-generate-hook-variants", _work, error_detail="Hook variant generation failed.")
 
 
 # ── Score History ────────────────────────────────────────────────────

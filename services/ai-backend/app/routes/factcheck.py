@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from app.services.model_backend import llm_backend
-from app.services.stream_utils import streamed_llm_response
+from app.services.stream_utils import streamed_llm_job
 
 logger = logging.getLogger(__name__)
 
@@ -135,4 +135,4 @@ async def factcheck(request: FactCheckRequest):
             "summary": ". ".join(summary_parts) + ".",
         }
 
-    return streamed_llm_response(_work, error_detail="Fact-checking failed.")
+    return streamed_llm_job("factcheck", _work, error_detail="Fact-checking failed.")
