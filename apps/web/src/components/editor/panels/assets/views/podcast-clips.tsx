@@ -26,6 +26,7 @@ import {
 	type PopoverSubtitlePreset,
 } from "@/lib/podcast/subtitle-presets";
 import { buildQuestionCardElement, QUESTION_CARD_TEMPLATES } from "@/lib/templates/question-card";
+import { buildHookTextElement, HOOK_TEXT_DEFAULT_DURATION } from "@/lib/podcast/hook-text";
 import type { ClipCandidate, QuestionCard, } from "@/types/ai";
 import { hasMediaId } from "@/lib/timeline";
 import { trimTimelineToRange } from "@/lib/timeline-edits";
@@ -75,6 +76,7 @@ export function PodcastClipsView() {
 	// Feature toggles
 	const [enableQuestionCards, setEnableQuestionCards] = useState(true);
 	const [enableKeywordHighlight, setEnableKeywordHighlight] = useState(true);
+	const [enableHookText, setEnableHookText] = useState(true);
 	const [cardTemplate, setCardTemplate] = useState("overlay");
 	const [cardTransparentBg, setCardTransparentBg] = useState(true);
 
@@ -648,13 +650,6 @@ export function PodcastClipsView() {
 					}
 				}
 
-				const summary = `${subtitleElements.length} words across ${trackBuckets.length} tracks${cards.length > 0 ? `, ${cards.length} cards` : ""}`;
-				bgTasks.updateTask(taskId, {
-					status: "completed",
-					progress: summary,
-					completedAt: Date.now(),
-				});
-
 				// Optional: flip the canvas to vertical for the new short clip
 				if (switchToVertical) {
 					const activeProject = editor.project.getActive();
@@ -672,6 +667,35 @@ export function PodcastClipsView() {
 					}
 				}
 
+				// SCRUM-80: burn the clip title as an opening hook. Runs after
+				// the canvas resize so upper-third placement uses the final
+				// (vertical) canvas dimensions.
+				let hookAdded = false;
+				if (enableHookText && clip.title.trim().length > 0) {
+					const finalSize = editor.project.getActive().settings.canvasSize;
+					const hookElement = buildHookTextElement({
+						title: clip.title,
+						startTime: 0,
+						duration: HOOK_TEXT_DEFAULT_DURATION,
+						canvasWidth: finalSize.width,
+						canvasHeight: finalSize.height,
+					});
+					const hookTrackId = editor.timeline.addTrack({ type: "text", index: 0 });
+					editor.timeline.renameTrack({ trackId: hookTrackId, name: "Hook Text" });
+					editor.timeline.insertElement({
+						placement: { mode: "explicit", trackId: hookTrackId },
+						element: hookElement,
+					});
+					hookAdded = true;
+				}
+
+				const summary = `${subtitleElements.length} words across ${trackBuckets.length} tracks${cards.length > 0 ? `, ${cards.length} cards` : ""}${hookAdded ? ", opening hook" : ""}`;
+				bgTasks.updateTask(taskId, {
+					status: "completed",
+					progress: summary,
+					completedAt: Date.now(),
+				});
+
 				// Park the playhead at the start of the trimmed clip
 				editor.playback.seek({ time: 0 });
 			} catch (err) {
@@ -685,7 +709,7 @@ export function PodcastClipsView() {
 				setIsApplying(false);
 			}
 		},
-		[segments, editor, subtitlePreset, switchToVertical, enableKeywordHighlight, enableQuestionCards, cardTemplate, cardTransparentBg, bgTasks],
+		[segments, editor, subtitlePreset, switchToVertical, enableKeywordHighlight, enableQuestionCards, enableHookText, cardTemplate, cardTransparentBg, bgTasks],
 	);
 
 	// ── Add Popover Subtitles (full transcript — background task) ──
@@ -966,6 +990,19 @@ export function PodcastClipsView() {
 						{/* ── Auto Features ── */}
 						<div className="border-t pt-3 flex flex-col gap-3">
 							<Label className="text-xs font-medium">Auto features</Label>
+
+							<div className="flex items-center justify-between">
+								<div className="flex flex-col">
+									<span className="text-xs">Hook text</span>
+									<span className="text-[10px] text-muted-foreground">
+										Render the clip title at the opening
+									</span>
+								</div>
+								<Switch
+									checked={enableHookText}
+									onCheckedChange={setEnableHookText}
+								/>
+							</div>
 
 							<div className="flex items-center justify-between">
 								<div className="flex flex-col">

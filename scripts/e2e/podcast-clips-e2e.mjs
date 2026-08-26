@@ -180,7 +180,11 @@ async function applyFirstClip(page) {
 	await apply.waitFor({ state: "visible", timeout: 20000 });
 	await apply.click();
 	await page.waitForFunction(
-		() => document.body.innerText.includes("Popover Subs"),
+		// SCRUM-80: both the subtitle track AND the new Hook Text track
+		// must exist after Apply Clip.
+		() =>
+			document.body.innerText.includes("Popover Subs") &&
+			document.body.innerText.includes("Hook Text"),
 		null,
 		{ timeout: 120000 },
 	);
@@ -234,7 +238,7 @@ try {
 	record("find-clips", true, "≥1 candidate rendered");
 
 	await applyFirstClip(page);
-	record("apply-clip", true, "Popover Subs track present");
+	record("apply-clip", true, "Popover Subs + Hook Text tracks present");
 
 	// Timeline duration after Apply must be ≤ 90s (max clip window) and > 0.
 	const tlDuration = await page.evaluate(() => document.body.innerText.length > 0);
