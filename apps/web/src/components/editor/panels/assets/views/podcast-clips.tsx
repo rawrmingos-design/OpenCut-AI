@@ -27,14 +27,22 @@ import {
 } from "@/lib/podcast/subtitle-presets";
 import { buildQuestionCardElement, QUESTION_CARD_TEMPLATES } from "@/lib/templates/question-card";
 import { buildHookTextElement, HOOK_TEXT_DEFAULT_DURATION } from "@/lib/podcast/hook-text";
+import { rebaseReframeKeyframesForClip } from "@/lib/podcast/batch-overlays";
+import {
+	computeReframeKeyframes,
+	getDefaultReframeOptions,
+	type ReframeKeyframes,
+} from "@/lib/reframe/reframe-types";
 import type { ClipCandidate, QuestionCard, } from "@/types/ai";
 import { hasMediaId } from "@/lib/timeline";
 import { trimTimelineToRange } from "@/lib/timeline-edits";
 import { useExportQueueStore } from "@/stores/export-queue-store";
 import { DEFAULT_EXPORT_OPTIONS } from "@/constants/export-constants";
+import { resolveAspectCanvas } from "@/lib/aspect";
 import {
 	BATCH_EXPORT_DEFAULTS,
 	buildBatchExportJobs,
+	buildBatchOverlayMetadata,
 	queueBatchExportJobs,
 } from "@/lib/batch-export";
 import { ClipsGallery } from "./clips-gallery";
@@ -435,33 +443,121 @@ export function PodcastClipsView() {
 		[editor, addExportJob],
 	);
 
-	// ── Export All (SCRUM-74: one-click batch queue) ──
-	const handleExportAllClips = useCallback(() => {
+	// ── Export All (SCRUM-74: one-click batch queue, SCRUM-81: overlays + reframe) ──
+	const handleExportAllClips = useCallback(async () => {
 		const activeProject = editor.project.getActive();
 		if (!activeProject) {
 			toast.error("No active project");
 			return;
 		}
-		const plans = buildBatchExportJobs({
-			projectName: activeProject.metadata.name,
-			clips,
-			fps: activeProject.settings.fps,
-			minScore: batchMinScore,
+
+		const canvasSize = activeProject.settings.canvasSize;
+		// Determine the rendered canvas size after 9:16 override
+		const renderCanvas = resolveAspectCanvas({
+			base: canvasSize,
 			aspectOverride: BATCH_EXPORT_DEFAULTS.aspectOverride,
 		});
-		if (plans.length === 0) {
+
+		const qualifyingClips = clips.filter((c) => c.score >= batchMinScore);
+		if (qualifyingClips.length === 0) {
 			toast.info("No clips match the score filter");
 			return;
 		}
+
+		// SCRUM-81: ONE face-detection pass shared by every batch job (bounded,
+		// cached only inside this immutable snapshot). Best-effort: if the face
+		// service is down the exports still run, just without smart reframing.
+		let sourceMediaId: string | null = null;
+		let reframeKeyframes: ReframeKeyframes | null = null;
+		try {
+			const sourceElement = editor.timeline
+				.getTracks()
+				.flatMap((track) => track.elements as TimelineElement[])
+				.find(
+					(element) => element.type === "video" && hasMediaId(element),
+				);
+			sourceMediaId =
+				sourceElement && hasMediaId(sourceElement)
+					? sourceElement.mediaId
+					: null;
+			const asset = sourceMediaId
+				? editor.media.getAssets().find((a) => a.id === sourceMediaId)
+				: null;
+			if (asset?.file && sourceMediaId) {
+				let file: File;
+				if (
+					asset.file instanceof File &&
+					typeof asset.file.name === "string" &&
+					asset.file.name.includes(".")
+				) {
+					file = asset.file;
+				} else {
+					file = new File([asset.file], "media.mp4", {
+						type: asset.file.type || "video/mp4",
+					});
+				}
+				const detection = await aiClient.detectFaces(file, {
+					sampleInterval: 0.5,
+					maxSamples: 240,
+				});
+				reframeKeyframes = computeReframeKeyframes(detection, {
+					...getDefaultReframeOptions(),
+					targetWidth: renderCanvas.width,
+					targetHeight: renderCanvas.height,
+				});
+			}
+		} catch {
+			reframeKeyframes = null;
+		}
+
+		const plans = buildBatchExportJobs({
+			projectName: activeProject.metadata.name,
+			clips: qualifyingClips,
+			fps: activeProject.settings.fps,
+			minScore: 0, // already filtered
+			aspectOverride: BATCH_EXPORT_DEFAULTS.aspectOverride,
+		}).map((plan, idx) => {
+			const clip = qualifyingClips[idx];
+			// Per-clip rebase: each job only sees keyframes inside its own
+			// window — no face data leaks between clips (AC #2).
+			const clipReframe =
+				sourceMediaId && reframeKeyframes
+					? rebaseReframeKeyframesForClip(
+							reframeKeyframes,
+							clip.start,
+							clip.end - clip.start,
+						)
+					: undefined;
+
+			return {
+				...plan,
+				options: {
+					...plan.options,
+					batchOverlays: buildBatchOverlayMetadata({
+						clip,
+						segments,
+						subtitlePreset,
+						hookTitle: enableHookText ? clip.title : "",
+						canvasWidth: renderCanvas.width,
+						canvasHeight: renderCanvas.height,
+						mediaId: sourceMediaId,
+						clipReframe,
+					}),
+				},
+			};
+		});
+
 		queueBatchExportJobs({
 			addJob: addExportJob,
 			projectId: activeProject.metadata.id,
 			plans,
 		});
 		toast.success(`${plans.length} exports queued`, {
-			description: "9:16 renders — progress in the render queue",
+			description: reframeKeyframes
+				? "9:16 renders with hook, subtitles & face reframe"
+				: "9:16 renders with hook & subtitles (face service unavailable — no reframe)",
 		});
-	}, [editor, clips, addExportJob, batchMinScore]);
+	}, [editor, clips, segments, addExportJob, batchMinScore, subtitlePreset, enableHookText]);
 
 	// ── Mini trim adjustments (SCRUM-76) ──
 	const handleAdjustClip = useCallback((index: number, next: ClipCandidate) => {
@@ -942,8 +1038,9 @@ export function PodcastClipsView() {
 												type="button"
 												className="h-7 px-2.5 text-[11px]"
 												disabled={isProcessing || clips.length === 0}
-												onClick={handleExportAllClips}
+												onClick={() => void handleExportAllClips()}
 											>
+												{isProcessing && <Spinner className="mr-1 size-3" />}
 												Export all ({clips.filter((c) => c.score >= batchMinScore).length})
 											</Button>
 										</div>

@@ -13,6 +13,7 @@ import {
 import { createTimelineAudioBuffer } from "@/lib/media/audio";
 import { formatTimeCode, getLastFrameTime } from "@/lib/time";
 import { downloadBlob } from "@/utils/browser";
+import { buildBatchOverlayTracks } from "@/lib/podcast/batch-overlays";
 
 export class RendererManager {
 	private renderTree: RootNode | null = null;
@@ -127,7 +128,6 @@ export class RendererManager {
 			// rebasing a cloned track list — the real timeline is untouched.
 			let tracks = fullTracks;
 			let duration = totalDuration;
-			let rangeStart: number | null = null;
 			if (
 				typeof options.start === "number" &&
 				typeof options.end === "number"
@@ -147,7 +147,6 @@ export class RendererManager {
 					end: resolved.end,
 				});
 				duration = resolved.end - resolved.start;
-				rangeStart = resolved.start;
 			}
 
 			// If running inside Tauri desktop app, use the native renderer
@@ -169,6 +168,65 @@ export class RendererManager {
 					base: canvasSize,
 					aspectOverride: options.aspectOverride,
 				});
+			}
+
+			// SCRUM-81: inject batch overlay tracks (subtitle + hook text) that were
+			// baked into the job at queue time. These are pure text tracks in rebased
+			// time — no editor state is read or mutated here.
+			if (options.batchOverlays) {
+				const overlayTracks = buildBatchOverlayTracks(options.batchOverlays);
+				tracks = [...tracks, ...overlayTracks];
+			}
+
+			// SCRUM-81: apply per-media face-tracking reframe keyframes onto the
+			// CLONED video elements for this render only — the stored project
+			// timeline keeps its original transforms.
+			const reframeByMediaId = options.batchOverlays?.videoReframeAnimations;
+			if (reframeByMediaId) {
+				tracks = tracks.map((track) => {
+					if (track.type !== "video") return track;
+					return {
+						...track,
+						elements: track.elements.map((el) => {
+							const mediaId = (el as { mediaId?: string }).mediaId;
+							const kf = mediaId ? reframeByMediaId[mediaId] : undefined;
+							if (!kf) return el;
+							const baseEl = el as typeof el & {
+								animations?: {
+									channels: Record<
+										string,
+										{
+											valueKind: string;
+											keyframes: unknown[];
+										}
+									>;
+								} | null;
+							};
+							const channels = {
+								...(baseEl.animations?.channels ?? {}),
+							} as Record<
+								string,
+								{ valueKind: string; keyframes: unknown[] }
+							>;
+							channels["transform.position.x"] = {
+								valueKind: "number",
+								keyframes: kf.positionX,
+							};
+							channels["transform.position.y"] = {
+								valueKind: "number",
+								keyframes: kf.positionY,
+							};
+							channels["transform.scale"] = {
+								valueKind: "number",
+								keyframes: kf.scale,
+							};
+							return {
+								...baseEl,
+								animations: { channels },
+							};
+						}),
+					};
+				}) as typeof tracks;
 			}
 
 			let audioBuffer: AudioBuffer | null = null;

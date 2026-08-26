@@ -15,7 +15,7 @@
  * Needs: docker compose stack up (web :3200, ai-backend :8420 + ollama),
  * playwright chromium installed (~/.cache/ms-playwright).
  */
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
@@ -126,6 +126,24 @@ async function stubAIForDeterministicE2E(page) {
 	const jsonLine = (payload) =>
 		JSON.stringify({ ping: true }) + "\n" +
 		JSON.stringify({ result: payload }) + "\n";
+	// SCRUM-81: deterministic face detections so the shared batch reframe
+	// pass produces stable keyframes (face right-of-center → non-zero X).
+	await page.route("**/api/analyze/faces", (route) =>
+		route.fulfill({
+			status: 200,
+			contentType: "application/json",
+			body: JSON.stringify({
+				frames: [
+					{ timestamp: 0, faces: [{ x: 0.68, y: 0.22, width: 0.12, height: 0.18, confidence: 0.96 }] },
+					{ timestamp: 20, faces: [{ x: 0.72, y: 0.24, width: 0.12, height: 0.18, confidence: 0.96 }] },
+				],
+				video_width: 1920,
+				video_height: 1080,
+				duration: 50.2,
+				total_faces_detected: 2,
+			}),
+		}),
+	);
 	await page.route("**/api/analyze/find-clips", (route) =>
 		route.fulfill({
 			status: 200,
@@ -204,6 +222,23 @@ function probeDuration(path) {
 	return Number(out);
 }
 
+// SCRUM-81: assert the batch artifact really is vertical 9:16.
+function probeDimensions(path) {
+	const out = execFileSync(
+		"ffprobe",
+		[
+			"-v", "error",
+			"-select_streams", "v:0",
+			"-show_entries", "stream=width,height",
+			"-of", "csv=p=0",
+			path,
+		],
+		{ encoding: "utf8" },
+	).trim();
+	const [w, h] = out.split(",").map(Number);
+	return { width: w, height: h };
+}
+
 const browser = await chromium.launch({
 	executablePath: browserExecutable(),
 	args: ["--no-sandbox"],
@@ -236,6 +271,53 @@ try {
 
 	await findClips(page);
 	record("find-clips", true, "≥1 candidate rendered");
+
+	// ── SCRUM-81: batch Export all before Apply Clip ──
+	// This keeps the source timeline intact so the ranged job exercises the
+	// real batch path: one face request, per-job 9:16 overlays, and download.
+	const batchDownloadPromise = page
+		.waitForEvent("download", { timeout: 240000 })
+		.catch(() => null);
+	const exportAllBtn = page
+		.getByRole("button", { name: /^Export all \(\d+\)$/ })
+		.first();
+	await exportAllBtn.waitFor({ state: "visible", timeout: 20000 });
+	await exportAllBtn.click();
+	await page
+		.locator("text=Render queue")
+		.first()
+		.waitFor({ timeout: 20000 });
+	await page.waitForFunction(
+		() =>
+			/\bdone\b/i.test(document.body.innerText) &&
+			document.querySelectorAll('[class*="animate-spin"]').length === 0,
+		null,
+		{ timeout: 240000 },
+	);
+	const batchDownload = await batchDownloadPromise;
+	if (!batchDownload) {
+		throw new Error("no download event after Export all");
+	}
+	const batchPath = join(
+		mkdtempSync(join(tmpdir(), "e2e-batch-export-")),
+		batchDownload.suggestedFilename(),
+	);
+	await batchDownload.saveAs(batchPath);
+	const batchDuration = probeDuration(batchPath);
+	const batchDimensions = probeDimensions(batchPath);
+	const batchIsVertical =
+		batchDimensions.width > 0 &&
+		batchDimensions.height > 0 &&
+		Math.abs(batchDimensions.width / batchDimensions.height - 9 / 16) < 0.01;
+	writeFileSync(
+		batchPath.replace(/\.mp4$/, "-meta.txt"),
+		`duration=${batchDuration}\nwidth=${batchDimensions.width}\nheight=${batchDimensions.height}\n`,
+	);
+	record(
+		"batch-export-download",
+		batchDuration > 1 && batchIsVertical,
+		`ffprobe=${batchDuration}s ${batchDimensions.width}x${batchDimensions.height} @ ${batchPath}`,
+	);
 
 	await applyFirstClip(page);
 	record("apply-clip", true, "Popover Subs + Hook Text tracks present");
@@ -281,6 +363,15 @@ try {
 	writeFileSync(outPath.replace(/\.mp4$/, "-meta.txt"), `duration=${dur}\n`);
 	record("ranged-export-download", dur > 1, `ffprobe=${dur}s @ ${outPath}`);
 
+	// SCRUM-81: dismiss the render queue panel before the task-widget
+	// scenarios — both float at right-4/bottom-4 and two done jobs make it
+	// tall enough to swallow clicks meant for the tasks widget's buttons.
+	const clearQueueBtn = page
+		.getByRole("button", { name: "Clear finished" })
+		.first();
+	if (await clearQueueBtn.isVisible().catch(() => false)) {
+		await clearQueueBtn.click();
+	}
 	// ── Scenario 2: AI backend down → visible error, no silent hang ──
 	// Abort the real backend origin (browser calls http://localhost:8420)
 	// before the editor boots so transcribe fails fast at the network layer.
@@ -338,7 +429,7 @@ try {
 	await widget3
 		.getByRole("button", { name: "Cancel", exact: true })
 		.first()
-		.click();
+		.click({ force: true });
 	await page3.waitForFunction(
 		() => {
 			const t = document.body.innerText;
