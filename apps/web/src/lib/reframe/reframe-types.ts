@@ -1,5 +1,6 @@
 import type { FaceDetectionResult, FaceFrame } from "@/types/ai";
-import type { NumberKeyframe } from "@/types/animation";
+import type { ElementAnimations, NumberKeyframe } from "@/types/animation";
+import type { TimelineTrack } from "@/types/timeline";
 
 export type ReframeAspectRatio = "9:16" | "1:1" | "4:5" | "16:9" | "custom";
 
@@ -50,6 +51,67 @@ export function getDefaultReframeOptions(): ReframeOptions {
 	};
 }
 
+export interface ReframeTarget {
+	elementId: string;
+	trackId: string;
+}
+
+export interface ReframeTimelineUpdate {
+	trackId: string;
+	elementId: string;
+	updates: { animations: ElementAnimations };
+}
+
+/** Build a scoped timeline update for the selected video element only. */
+export function buildReframeTimelineUpdate({
+	tracks,
+	target,
+	keyframes,
+}: {
+	tracks: TimelineTrack[];
+	target: ReframeTarget;
+	keyframes: ReframeKeyframes;
+}): ReframeTimelineUpdate | null {
+	const track = tracks.find((candidate) => candidate.id === target.trackId);
+	const element = track?.elements.find((candidate) => candidate.id === target.elementId);
+	if (!track || !element || element.type !== "video") return null;
+
+	const channels = { ...(element.animations?.channels ?? {}) };
+	if (keyframes.positionX.length > 0) {
+		channels["transform.position.x"] = {
+			valueKind: "number",
+			keyframes: keyframes.positionX,
+		};
+	}
+	if (keyframes.positionY.length > 0) {
+		channels["transform.position.y"] = {
+			valueKind: "number",
+			keyframes: keyframes.positionY,
+		};
+	}
+	if (keyframes.scale.length > 0) {
+		channels["transform.scale"] = {
+			valueKind: "number",
+			keyframes: keyframes.scale,
+		};
+	}
+
+	return {
+		trackId: track.id,
+		elementId: element.id,
+		updates: { animations: { channels } },
+	};
+}
+
+/** Compute the scale factor required to fill the target aspect from the source. */
+function getFitScale(sourceAspect: number, targetAspect: number): number {
+	const cropScale =
+		targetAspect > sourceAspect
+			? sourceAspect / targetAspect
+			: targetAspect / sourceAspect;
+	return 1 / cropScale;
+}
+
 export function computeReframeKeyframes(
 	detection: FaceDetectionResult,
 	options: ReframeOptions,
@@ -64,11 +126,25 @@ export function computeReframeKeyframes(
 
 	const isCropNeeded = Math.abs(targetAspect - sourceAspect) > 0.01;
 
-	if (!isCropNeeded || frames.length === 0) {
+	if (!isCropNeeded) {
+		// Aspects match — identity transform, no crop required.
 		return {
 			positionX: [{ id: "rx-0", time: 0, value: 0, interpolation: "linear" }],
 			positionY: [{ id: "ry-0", time: 0, value: 0, interpolation: "linear" }],
 			scale: [{ id: "rs-0", time: 0, value: 1, interpolation: "linear" }],
+		};
+	}
+
+	// Crop is needed. Build a single scale keyframe regardless of whether
+	// we find any faces — it fills the target aspect from the source.
+	const fitScale = getFitScale(sourceAspect, targetAspect);
+
+	if (frames.length === 0) {
+		// No frames to analyse — center-crop with the correct scale.
+		return {
+			positionX: [{ id: "rx-0", time: 0, value: 0, interpolation: "linear" }],
+			positionY: [{ id: "ry-0", time: 0, value: 0, interpolation: "linear" }],
+			scale: [{ id: "rs-0", time: 0, value: fitScale, interpolation: "linear" }],
 		};
 	}
 
@@ -85,10 +161,11 @@ export function computeReframeKeyframes(
 	}
 
 	if (rawCenters.length === 0) {
+		// Frames exist but no qualifying faces — center-crop.
 		return {
 			positionX: [{ id: "rx-0", time: 0, value: 0, interpolation: "linear" }],
 			positionY: [{ id: "ry-0", time: 0, value: 0, interpolation: "linear" }],
-			scale: [{ id: "rs-0", time: 0, value: 1, interpolation: "linear" }],
+			scale: [{ id: "rs-0", time: 0, value: fitScale, interpolation: "linear" }],
 		};
 	}
 
@@ -117,12 +194,6 @@ export function computeReframeKeyframes(
 			interpolation: "linear",
 		});
 	}
-
-	const cropScale = targetAspect > sourceAspect
-		? sourceAspect / targetAspect
-		: targetAspect / sourceAspect;
-
-	const fitScale = 1 / cropScale;
 
 	scale.push({
 		id: "rs-0",

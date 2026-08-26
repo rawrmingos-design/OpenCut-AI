@@ -1405,7 +1405,7 @@ class AIClient {
 		if (options?.maxSamples !== undefined) formData.append("max_samples", options.maxSamples.toString());
 
 		return this.requestFormData<FaceDetectionResult>(
-			"/api/analyze/faces",
+			"/api/analyze/faces", // SCRUM-79: route is /api/analyze/faces (podcast router uses /api/analyze prefix)
 			formData,
 			300_000, // 5 min timeout
 		);

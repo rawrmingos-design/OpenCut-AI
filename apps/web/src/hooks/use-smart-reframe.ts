@@ -6,12 +6,12 @@ import {
 	type ReframeOptions,
 	type ReframePreset,
 	type ReframeResult,
+	type ReframeTarget,
+	buildReframeTimelineUpdate,
 	computeReframeKeyframes,
 	getDefaultReframeOptions,
 } from "@/lib/reframe/reframe-types";
 import type { FaceDetectionResult } from "@/types/ai";
-import type { NumberKeyframe } from "@/types/animation";
-import type { VideoElement } from "@/types/timeline";
 
 export type ReframeStatus = "idle" | "detecting" | "computing" | "applying" | "done" | "error";
 
@@ -20,6 +20,8 @@ export interface UseSmartReframeReturn {
 	progress: number;
 	result: ReframeResult | null;
 	error: string | null;
+	/** SCRUM-79: element the pending result belongs to (null until computed). */
+	target: ReframeTarget | null;
 	startReframe: (
 		elementId: string,
 		trackId: string,
@@ -36,6 +38,7 @@ export function useSmartReframe(): UseSmartReframeReturn {
 	const [progress, setProgress] = useState(0);
 	const [result, setResult] = useState<ReframeResult | null>(null);
 	const [error, setError] = useState<string | null>(null);
+	const [target, setTarget] = useState<ReframeTarget | null>(null);
 
 	const startReframe = useCallback(
 		async (
@@ -48,6 +51,7 @@ export function useSmartReframe(): UseSmartReframeReturn {
 			setProgress(0);
 			setError(null);
 			setResult(null);
+			setTarget(null);
 
 			try {
 				const tracks = editor.timeline.getTracks();
@@ -59,7 +63,7 @@ export function useSmartReframe(): UseSmartReframeReturn {
 					throw new Error("Element must be a video");
 				}
 
-				const videoEl = element as VideoElement;
+				const videoEl = element;
 				if (!videoEl.mediaId) throw new Error("Video has no media source");
 
 				const media = editor.media.getAssetById(videoEl.mediaId);
@@ -94,6 +98,7 @@ export function useSmartReframe(): UseSmartReframeReturn {
 				};
 
 				setResult(reframeResult);
+				setTarget({ elementId, trackId });
 				setProgress(100);
 				setStatus("done");
 			} catch (err) {
@@ -105,58 +110,56 @@ export function useSmartReframe(): UseSmartReframeReturn {
 	);
 
 	const applyKeyframes = useCallback(() => {
-		if (!result) return;
+		if (!result || !target) return;
 
 		setStatus("applying");
 
 		try {
-			const tracks = editor.timeline.getTracks();
-			for (const track of tracks) {
-				for (const element of track.elements) {
-					if (element.type !== "video") continue;
-					if (!(element as VideoElement).mediaId) continue;
-
-					const animations = { ...element.animations };
-					const channels = { ...animations?.channels };
-
-					if (result.keyframes.positionX.length > 0) {
-						channels["transform.position.x"] = {
-							valueKind: "number",
-							keyframes: result.keyframes.positionX as NumberKeyframe[],
-						};
-					}
-
-					if (result.keyframes.positionY.length > 0) {
-						channels["transform.position.y"] = {
-							valueKind: "number",
-							keyframes: result.keyframes.positionY as NumberKeyframe[],
-						};
-					}
-
-					if (result.keyframes.scale.length > 0) {
-						channels["transform.scale"] = {
-							valueKind: "number",
-							keyframes: result.keyframes.scale as NumberKeyframe[],
-						};
-					}
-
-					element.animations = { channels };
-				}
+			// SCRUM-79: build a single scoped update for the analysed element
+			// instead of mutating every video on the timeline.
+			const update = buildReframeTimelineUpdate({
+				tracks: editor.timeline.getTracks(),
+				target,
+				keyframes: result.keyframes,
+			});
+			if (!update) {
+				throw new Error("Reframed element no longer exists in the timeline");
 			}
+
+			editor.timeline.updateElements({ updates: [update] });
+
+			// SCRUM-79: resize the project canvas to the preset so the preview
+			// and any subsequent export render at the reframed aspect ratio.
+			void editor.project.updateSettings({
+				settings: {
+					canvasSize: { width: result.preset.width, height: result.preset.height },
+				},
+				pushHistory: false,
+			});
 
 			setStatus("done");
 		} catch (err) {
 			setStatus("error");
 			setError(err instanceof Error ? err.message : "Failed to apply keyframes");
 		}
-	}, [result, editor]);
+	}, [result, target, editor]);
 
 	const reset = useCallback(() => {
 		setStatus("idle");
 		setProgress(0);
 		setResult(null);
 		setError(null);
+		setTarget(null);
 	}, []);
 
-	return { status, progress, result, error, startReframe, applyKeyframes, reset };
+	return {
+		status,
+		progress,
+		result,
+		error,
+		target,
+		startReframe,
+		applyKeyframes,
+		reset,
+	};
 }

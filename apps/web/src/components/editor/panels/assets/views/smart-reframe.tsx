@@ -27,15 +27,31 @@ export function SmartReframePanel({ className }: { className?: string }) {
 		let videoElementId: string | null = null;
 		let videoTrackId: string | null = null;
 
-		for (const track of tracks) {
-			for (const element of track.elements) {
-				if (element.type === "video" && "mediaId" in element && element.mediaId) {
-					videoElementId = element.id;
-					videoTrackId = track.id;
+		// SCRUM-79: prefer the currently selected element; fall back to first video
+		const selected = editor.selection.getSelectedElements();
+		if (selected.length > 0) {
+			for (const { trackId, elementId } of selected) {
+				const track = tracks.find((t) => t.id === trackId);
+				const el = track?.elements.find((e) => e.id === elementId);
+				if (el?.type === "video" && "mediaId" in el && el.mediaId) {
+					videoElementId = elementId;
+					videoTrackId = trackId;
 					break;
 				}
 			}
-			if (videoElementId) break;
+		}
+
+		if (!videoElementId) {
+			for (const track of tracks) {
+				for (const element of track.elements) {
+					if (element.type === "video" && "mediaId" in element && element.mediaId) {
+						videoElementId = element.id;
+						videoTrackId = track.id;
+						break;
+					}
+				}
+				if (videoElementId) break;
+			}
 		}
 
 		if (!videoElementId || !videoTrackId) return;
